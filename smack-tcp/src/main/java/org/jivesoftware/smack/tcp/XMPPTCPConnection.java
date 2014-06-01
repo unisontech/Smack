@@ -46,7 +46,6 @@ import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
-import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smack.util.TLSUtils;
 import org.jivesoftware.smack.util.dns.HostAddress;
 import org.xmlpull.v1.XmlPullParser;
@@ -295,7 +294,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (response != null) {
             this.user = response;
             // Update the serviceName with the one returned by the server
-            setServiceName(StringUtils.parseServer(response));
+            setServiceName(response);
         }
         else {
             this.user = username + "@" + getServiceName();
@@ -346,7 +345,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         // Set the user value.
         this.user = response;
         // Update the serviceName with the one returned by the server
-        setServiceName(StringUtils.parseServer(response));
+        setServiceName(response);
 
         // If compression is enabled then request the server to use stream compression
         if (config.isCompressionEnabled()) {
