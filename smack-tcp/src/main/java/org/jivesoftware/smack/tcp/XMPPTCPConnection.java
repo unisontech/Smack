@@ -38,6 +38,12 @@ import org.jivesoftware.smack.parsing.UnparsablePacket;
 import org.jivesoftware.smack.sasl.SASLMechanism.Challenge;
 import org.jivesoftware.smack.sasl.SASLMechanism.SASLFailure;
 import org.jivesoftware.smack.sasl.SASLMechanism.Success;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
+import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smack.util.StringUtils;
@@ -83,6 +89,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -133,6 +141,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * Lock for the wait()/notify() pattern for the compression negotiation
      */
     private final Object compressionLock = new Object();
+
+    private String sessionId;
+    private boolean isSmAvailable = false;
+    private boolean isSmEnabled = false;
+    private long clientAckHeight = 0;
+    private long serverAckHeight = 0;
+    private Queue<Packet> unackedStanzas = new ConcurrentLinkedQueue<Packet>();
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
@@ -1075,6 +1090,21 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // Reset the state of the parser since a new stream element is going
                             // to be sent by the server
                             resetParser();
+                        }
+                        else if (name.equals(Enabled.ELEMENT)) {
+                            Enabled enabled = ParseStreamManagement.enabled(parser);
+                        }
+                        else if (name.equals(Failed.ELEMENT)) {
+                            Failed failed = ParseStreamManagement.failed(parser);
+                        }
+                        else if (name.equals(Resumed.ELEMENT)) {
+                            Resumed resumed = ParseStreamManagement.resumed(parser);
+                        }
+                        else if (name.equals(AckAnswer.ELEMENT)) {
+                            AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
+                        }
+                        else if (name.equals(AckRequest.ELEMENT)) {
+                            AckRequest ackRequest = ParseStreamManagement.ackRequest(parser);
                         }
                     }
                     else if (eventType == XmlPullParser.END_TAG) {
