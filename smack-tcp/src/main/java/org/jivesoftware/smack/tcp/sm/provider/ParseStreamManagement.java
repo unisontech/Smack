@@ -17,7 +17,6 @@
 package org.jivesoftware.smack.tcp.sm.provider;
 
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
-import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
@@ -41,7 +40,4 @@ public class ParseStreamManagement {
         return null; // TODO
     }
 
-    public static AckRequest ackRequest(XmlPullParser parser) {
-        return null; // TODO
-    }
 }

@@ -1109,6 +1109,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Resumed resumed = ParseStreamManagement.resumed(parser);
                         }
                         else if (name.equals(AckAnswer.ELEMENT)) {
+                            assert(smEnabled && smAvailable);
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             long ackedStanzasCount = ackAnswer.getHandledCount() - serverHandledStanzasCount;
                             for (long i = 0; i < ackedStanzasCount; i++) {
@@ -1123,9 +1124,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             serverHandledStanzasCount = ackAnswer.getHandledCount();
                         }
                         else if (name.equals(AckRequest.ELEMENT)) {
-                            AckRequest ackRequest = ParseStreamManagement.ackRequest(parser);
-                            AckAnswer ackAnswer = new AckAnswer(clientHandledStanzasCount);
-                            sendPacket(ackAnswer);
+                            // AckRequest stanzas are trival, no need to parse them
+                            if (smEnabled) {
+                                AckAnswer ackAnswer = new AckAnswer(clientHandledStanzasCount);
+                                sendPacket(ackAnswer);
+                            } else {
+                                LOGGER.warning("SM Ack Request received while SM is not enabled");
+                            }
                         }
                     }
                     else if (eventType == XmlPullParser.END_TAG) {
