@@ -20,6 +20,7 @@ import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.ConnectionConfiguration;
 import org.jivesoftware.smack.ConnectionCreationListener;
 import org.jivesoftware.smack.ConnectionListener;
+import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.SmackConfiguration;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.SmackException.AlreadyLoggedInException;
@@ -31,6 +32,7 @@ import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
+import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.parsing.ParsingExceptionCallback;
@@ -84,11 +86,13 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -142,11 +146,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final Object compressionLock = new Object();
 
     private String sessionId;
-    private boolean isSmAvailable = false;
-    private boolean isSmEnabled = false;
-    private long clientAckHeight = 0;
-    private long serverAckHeight = 0;
-    private Queue<Packet> unackedStanzas = new ConcurrentLinkedQueue<Packet>();
+    private boolean smAvailable = false;
+    private boolean smEnabled = false;
+    private long serverHandledStanzasCount = 0;
+    private long clientHandledStanzasCount = 0;
+    private Queue<Packet> unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
+    private Set<PacketListener> stanzaAcknowledgedListeners = new HashSet<PacketListener>();
+    private Set<PacketFilter> requestAckPredicates = new HashSet<PacketFilter>();
+
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
@@ -990,6 +997,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 int eventType = parser.getEventType();
                 do {
                     if (eventType == XmlPullParser.START_TAG) {
+                        // TOOD AtomicInteger required? (incr by packetreader thread, ready by others?)
+                        clientHandledStanzasCount++;
                         int parserDepth = parser.getDepth();
                         String name = parser.getName();
                         ParsingExceptionCallback callback = getParsingExceptionCallback();
@@ -1101,9 +1110,22 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                         else if (name.equals(AckAnswer.ELEMENT)) {
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
+                            long ackedStanzasCount = ackAnswer.getHandledCount() - serverHandledStanzasCount;
+                            for (long i = 0; i < ackedStanzasCount; i++) {
+                                Packet ackedPacket = unacknowledgedStanzas.poll();
+                                // If the server ack'ed a stanza, then it must be in ithe
+                                // unacknowledged stanza queue. There can be no exception.
+                                assert(ackedPacket != null);
+                                for (PacketListener listener : stanzaAcknowledgedListeners) {
+                                    listener.processPacket(ackedPacket);
+                                }
+                            }
+                            serverHandledStanzasCount = ackAnswer.getHandledCount();
                         }
                         else if (name.equals(AckRequest.ELEMENT)) {
                             AckRequest ackRequest = ParseStreamManagement.ackRequest(parser);
+                            AckAnswer ackAnswer = new AckAnswer(clientHandledStanzasCount);
+                            sendPacket(ackAnswer);
                         }
                     }
                     else if (eventType == XmlPullParser.END_TAG) {
@@ -1273,7 +1295,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             if (done) {
                 throw new NotConnectedException();
             }
-
+            if (smEnabled) {
+                unacknowledgedStanzas.offer(packet);
+            }
             try {
                 queue.put(packet);
             }
@@ -1416,5 +1440,21 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             writer.write(stream.toString());
             writer.flush();
         }
+    }
+
+    public boolean addRequestAckPredicate(PacketFilter predicate) {
+        return requestAckPredicates.add(predicate);
+    }
+
+    public boolean removeRequestAckPredicate(PacketFilter predicate) {
+        return requestAckPredicates.remove(predicate);
+    }
+
+    public boolean addStanzaAcknowledgedListener(PacketListener listener) {
+        return stanzaAcknowledgedListeners.add(listener);
+    }
+
+    public boolean removeStanzaAcknowledgedListener(PacketListener listener) {
+        return stanzaAcknowledgedListeners.remove(listener);
     }
 }

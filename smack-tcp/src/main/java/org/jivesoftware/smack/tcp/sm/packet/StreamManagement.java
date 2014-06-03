@@ -137,11 +137,11 @@ public class StreamManagement extends Packet {
 
     private static abstract class AbstractResume extends Packet {
 
-        private final long height;
+        private final long handledCount;
         private final String previd;
 
-        public AbstractResume(long height, String previd) {
-            this.height = height;
+        public AbstractResume(long handledCount, String previd) {
+            this.handledCount = handledCount;
             this.previd = previd;
         }
 
@@ -152,7 +152,7 @@ public class StreamManagement extends Packet {
             XmlStringBuilder xml = new XmlStringBuilder();
             xml.openElement(getElement());
             xml.xmlnsAttribute(NAMESPACE);
-            xml.attribute("h", Long.toString(height));
+            xml.attribute("h", Long.toString(handledCount));
             xml.attribute("previd", previd);
             xml.closeEmptyElement();
             return xml;
@@ -160,8 +160,8 @@ public class StreamManagement extends Packet {
     }
 
     public static class Resume extends AbstractResume {
-        public Resume(long height, String previd) {
-            super(height, previd);
+        public Resume(long handledCount, String previd) {
+            super(handledCount, previd);
         }
 
         @Override
@@ -173,8 +173,8 @@ public class StreamManagement extends Packet {
     public static class Resumed extends AbstractResume {
         public static final String ELEMENT = "resumed";
 
-        public Resumed(long height, String previd) {
-            super(height, previd);
+        public Resumed(long handledCount, String previd) {
+            super(handledCount, previd);
         }
 
         @Override
@@ -186,10 +186,14 @@ public class StreamManagement extends Packet {
     public static class AckAnswer extends Packet {
         public static final String ELEMENT = "a";
 
-        private final long height;
+        private final long handledCount;
 
-        public AckAnswer(long height) {
-            this.height = height;
+        public AckAnswer(long handledCount) {
+            this.handledCount = handledCount;
+        }
+
+        public long getHandledCount() {
+            return handledCount;
         }
 
         @Override
@@ -197,7 +201,7 @@ public class StreamManagement extends Packet {
             XmlStringBuilder xml = new XmlStringBuilder();
             xml.openElement(ELEMENT);
             xml.xmlnsAttribute(NAMESPACE);
-            xml.attribute("h", Long.toString(height));
+            xml.attribute("h", Long.toString(handledCount));
             xml.closeEmptyElement();
             return xml;
         }
