@@ -40,11 +40,13 @@ import org.jivesoftware.smack.parsing.UnparsablePacket;
 import org.jivesoftware.smack.sasl.SASLMechanism.Challenge;
 import org.jivesoftware.smack.sasl.SASLMechanism.SASLFailure;
 import org.jivesoftware.smack.sasl.SASLMechanism.Success;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.StreamManagementFeature;
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
@@ -145,9 +147,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private final Object compressionLock = new Object();
 
+    private static boolean smEnabledPerDefault = true;
     private String sessionId;
     private boolean smAvailable = false;
-    private boolean smEnabled = false;
+    private boolean smEnabled = smEnabledPerDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
     private Queue<Packet> unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
@@ -1207,6 +1210,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     else if (parser.getName().equals("register")) {
                         serverSupportsAccountCreation();
                     }
+                    else if (parser.getName().equals(StreamManagementFeature.ELEMENT)) {
+                        if (parser.getNamespace().equals(StreamManagement.NAMESPACE)) {
+                            smAvailable = true;
+                        } else {
+                            LOGGER.warning("SM announced by server, but namespace not known'" + parser.getNamespace() + "'");
+                        }
+                    }
                 }
                 else if (eventType == XmlPullParser.END_TAG) {
                     if (parser.getName().equals("starttls")) {
@@ -1445,6 +1455,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             writer.write(stream.toString());
             writer.flush();
         }
+    }
+
+    public static void setSMEnabledPerDefault(boolean smEnabledPerDefault) {
+        XMPPTCPConnection.smEnabledPerDefault = smEnabledPerDefault;
     }
 
     public boolean addRequestAckPredicate(PacketFilter predicate) {

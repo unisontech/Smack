@@ -17,16 +17,33 @@
 package org.jivesoftware.smack.tcp.sm.packet;
 
 import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
-public class StreamManagement extends Packet {
+public class StreamManagement {
     public static final String NAMESPACE = "urn:xmpp:sm:3";
 
-    @Override
-    public CharSequence toXML() {
-        // TODO Auto-generated method stub
-        return null;
+    public static class StreamManagementFeature implements PacketExtension {
+
+        public static final String ELEMENT = "sm";
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
+
+        @Override
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public CharSequence toXML() {
+            XmlStringBuilder xml = new XmlStringBuilder(this);
+            xml.rightAngelBracket();
+            return xml;
+        }
     }
 
     public static class Enable extends Packet {
