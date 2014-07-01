@@ -84,9 +84,20 @@ public class StreamManagement {
     public static class Enabled extends Packet {
         public static final String ELEMENT = "enabled";
 
-        private String id;
-        private String location;
-        private boolean resume = false;
+        /**
+         * TODO javadoc
+         */
+        private final String id;
+
+        /**
+         * TODO javadoc
+         */
+        private final String location;
+
+        /**
+         * TODO javadoc
+         */
+        private final boolean resume;
 
         /**
          * Server's preferred maximum resumption time in seconds (optional).
@@ -94,14 +105,26 @@ public class StreamManagement {
         private int max = -1;
 
         public Enabled(String id, boolean resume) {
-            this.id = id;
-            this.resume = resume;
+            this(id, resume, null, -1);
         }
 
         public Enabled(String id, boolean resume, String location, int max) {
-            this(id, resume);
+            this.id = id;
+            this.resume = resume;
             this.location = location;
             this.max = max;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public boolean resumeSet() {
+            return resume;
         }
 
         @Override
@@ -163,6 +186,14 @@ public class StreamManagement {
         }
 
         abstract String getElement();
+
+        public long getHandledCount() {
+            return handledCount;
+        }
+
+        public String getPrevId() {
+            return previd;
+        }
 
         @Override
         public final CharSequence toXML() {

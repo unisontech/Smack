@@ -45,6 +45,7 @@ import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resume;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.StreamManagementFeature;
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
@@ -148,8 +149,28 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final Object compressionLock = new Object();
 
     private static boolean smEnabledPerDefault = true;
-    private String sessionId;
-    private boolean smAvailable = false;
+
+    /**
+     * Set to some value if Stream is managed
+     */
+    private String smSessionId;
+
+    private final Object smLock = new Object();
+
+    /**
+     * Set to true if Stream Management is active. Is also used a synchronization point.
+     */
+    private boolean smActive;
+
+    /**
+     * Indicates whether Stream Management (XEP-198) is supported by the server, i.e. if it's
+     * announced in the servers features.
+     */
+    private boolean smAvailable;
+
+    /**
+     * Indicates whether Stream Management (XEP-198) should be used if it's supported by the server.
+     */
     private boolean smEnabled = smEnabledPerDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
@@ -299,6 +320,27 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             useCompression();
         }
 
+        if (smSessionId != null) {
+            // TODO Resume stream by sending 'resume' stanza?
+            // Is this the right order: login, compression then resume?
+            Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
+            // TODO send this (without increasing outgoing stanza count ?)
+            synchronized(smLock) {
+                try {
+                    smLock.wait(getPacketReplyTimeout());
+                }
+                catch (InterruptedException e) {
+                    LOGGER.log(Level.WARNING, "smLock.wait()", e);
+                }
+            }
+            if (smActive) {
+                return;
+            } else {
+                // TODO what to do here? throw exception? Continue with normal login process?
+                throw new SmackException("Could not resume stream");
+            }
+        }
+
         // Set the user.
         String response = bindResourceAndEstablishSession(resource);
         if (response != null) {
@@ -431,6 +473,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         authenticated = false;
         connected = false;
         usingTLS = false;
+        smActive = false;
         reader = null;
         writer = null;
     }
@@ -1104,9 +1147,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                         else if (name.equals(Enabled.ELEMENT)) {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
+                            if (enabled.resumeSet()) {
+                                smSessionId = enabled.getId();
+                                // TODO resume stream here
+                            }
+                            synchronized(smLock) {
+                                smActive = true;
+                                smLock.notify();
+                            }
                         }
                         else if (name.equals(Failed.ELEMENT)) {
                             Failed failed = ParseStreamManagement.failed(parser);
+                            synchronized(smLock) {
+                                smLock.notify();
+                            }
                         }
                         else if (name.equals(Resumed.ELEMENT)) {
                             Resumed resumed = ParseStreamManagement.resumed(parser);
@@ -1310,7 +1364,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             if (done) {
                 throw new NotConnectedException();
             }
-            if (smEnabled) {
+            if (smActive) {
                 unacknowledgedStanzas.offer(packet);
             }
             try {
