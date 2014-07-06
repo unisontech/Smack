@@ -16,6 +16,7 @@
  */
 package org.jivesoftware.smack.util;
 
+import org.jivesoftware.smack.packet.Element;
 import org.jivesoftware.smack.packet.PacketExtension;
 
 public class XmlStringBuilder implements Appendable, CharSequence {
@@ -30,6 +31,11 @@ public class XmlStringBuilder implements Appendable, CharSequence {
     public XmlStringBuilder(PacketExtension pe) {
         this();
         prelude(pe);
+    }
+
+    public XmlStringBuilder(Element e) {
+        this();
+        halfOpenElement(e.getElementName());
     }
 
     /**
@@ -83,8 +89,8 @@ public class XmlStringBuilder implements Appendable, CharSequence {
         return this;
     }
 
-    public XmlStringBuilder closeElement(PacketExtension pe) {
-        closeElement(pe.getElementName());
+    public XmlStringBuilder closeElement(Element e) {
+        closeElement(e.getElementName());
         return this;
     }
 
@@ -168,6 +174,25 @@ public class XmlStringBuilder implements Appendable, CharSequence {
         return this;
     }
 
+    public XmlStringBuilder emptyElement(String element) {
+        halfOpenElement(element);
+        return closeEmptyElement();
+    }
+
+    public XmlStringBuilder condEmptyElement(boolean condition, String element) {
+        if (condition) {
+            emptyElement(element);
+        }
+        return this;
+    }
+
+    public XmlStringBuilder condAttribute(boolean condition, String name, String value) {
+        if (condition) {
+            attribute(name, value);
+        }
+        return this;
+    }
+
     @Override
     public XmlStringBuilder append(CharSequence csq) {
         assert csq != null;
@@ -206,5 +231,19 @@ public class XmlStringBuilder implements Appendable, CharSequence {
     @Override
     public String toString() {
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof XmlStringBuilder)) {
+            return false;
+        }
+        XmlStringBuilder otherXmlStringBuilder = (XmlStringBuilder) other;
+        return toString().equals(otherXmlStringBuilder.toString());
+    }
+
+    @Override
+    public int hashCode() {
+        return toString().hashCode();
     }
 }

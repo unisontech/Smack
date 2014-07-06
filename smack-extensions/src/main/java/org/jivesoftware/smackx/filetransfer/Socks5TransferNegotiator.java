@@ -97,7 +97,7 @@ public class Socks5TransferNegotiator extends StreamNegotiator {
 
     @Override
     public String[] getNamespaces() {
-        return new String[] { Socks5BytestreamManager.NAMESPACE };
+        return new String[] { Bytestream.NAMESPACE };
     }
 
     @Override
@@ -120,11 +120,6 @@ public class Socks5TransferNegotiator extends StreamNegotiator {
         catch (IOException e) {
             throw new SmackException("Error establishing input stream", e);
         }
-    }
-
-    @Override
-    public void cleanup() {
-        /* do nothing */
     }
 
     /**

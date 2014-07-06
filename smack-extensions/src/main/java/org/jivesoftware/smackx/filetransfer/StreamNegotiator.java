@@ -26,7 +26,6 @@ import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Packet;
-import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smackx.si.packet.StreamInitiation;
 import org.jivesoftware.smackx.xdata.Form;
 import org.jivesoftware.smackx.xdata.FormField;
@@ -37,7 +36,7 @@ import java.io.OutputStream;
 
 /**
  * After the file transfer negotiation process is completed according to
- * JEP-0096, the negotiation process is passed off to a particular stream
+ * XEP-0096, the negotiation process is passed off to a particular stream
  * negotiator. The stream negotiator will then negotiate the chosen stream and
  * return the stream to transfer the file.
  *
@@ -72,13 +71,6 @@ public abstract class StreamNegotiator {
 
         response.setFeatureNegotiationForm(form);
         return response;
-    }
-
-
-    public IQ createError(String from, String to, String packetID, XMPPError xmppError) {
-        IQ iq = FileTransferNegotiator.createIQ(packetID, to, from, IQ.Type.error);
-        iq.setError(xmppError);
-        return iq;
     }
 
     Packet initiateIncomingStream(XMPPConnection connection, StreamInitiation initiation) throws NoResponseException, XMPPErrorException, NotConnectedException  {
@@ -156,10 +148,5 @@ public abstract class StreamNegotiator {
      *         file transfer.
      */
     public abstract String[] getNamespaces();
-
-    /**
-     * Cleanup any and all resources associated with this negotiator.
-     */
-    public abstract void cleanup();
 
 }

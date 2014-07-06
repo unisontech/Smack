@@ -114,13 +114,13 @@
     <extensionProvider>
         <elementName>x</elementName>
         <namespace>jabber:x:delay</namespace>
-        <className>org.jivesoftware.smackx.delay.provider.DelayInformationProvider</className>
+        <className>org.jivesoftware.smackx.delay.provider.LegacyDelayInformationProvider</className>
     </extensionProvider>
     
     <extensionProvider>
     	<elementName>delay</elementName>
         <namespace>urn:xmpp:delay</namespace>
-        <className>org.jivesoftware.smackx.delay.provider.DelayInfoProvider</className>
+        <className>org.jivesoftware.smackx.delay.provider.DelayInformationProvider</className>
     </extensionProvider>
 
     <!-- Version -->
@@ -172,7 +172,7 @@
         <className>org.jivesoftware.smackx.sharedgroups.packet.SharedGroupsInfo$Provider</className>
     </iqProvider>
 
-    <!-- JEP-33: Extended Stanza Addressing -->
+    <!-- XEP-33: Extended Stanza Addressing -->
     <extensionProvider>
         <elementName>addresses</elementName>
         <namespace>http://jabber.org/protocol/address</namespace>

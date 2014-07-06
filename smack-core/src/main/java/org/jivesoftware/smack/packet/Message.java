@@ -47,6 +47,8 @@ import java.util.*;
  */
 public class Message extends Packet {
 
+    public static final String BODY = "body";
+
     private Type type = Type.normal;
     private String thread = null;
     private String language;
@@ -440,9 +442,9 @@ public class Message extends Packet {
             // Skip the default language
             if(body.equals(defaultBody))
                 continue;
-            buf.halfOpenElement("body").xmllangAttribute(body.getLanguage()).rightAngelBracket();
+            buf.halfOpenElement(BODY).xmllangAttribute(body.getLanguage()).rightAngelBracket();
             buf.escape(body.getMessage());
-            buf.closeElement("body");
+            buf.closeElement(BODY);
         }
         buf.optElement("thread", thread);
         // Append the error subpacket if the message type is an error.
@@ -647,13 +649,17 @@ public class Message extends Packet {
          */
         error;
 
-        public static Type fromString(String name) {
-            try {
-                return Type.valueOf(name);
-            }
-            catch (Exception e) {
-                return normal;
-            }
+        /**
+         * Converts a String into the corresponding types. Valid String values that can be converted
+         * to types are: "normal", "chat", "groupchat", "headline" and "error".
+         * 
+         * @param string the String value to covert.
+         * @return the corresponding Type.
+         * @throws IllegalArgumentException when not able to parse the string parameter
+         * @throws NullPointerException if the string is null
+         */
+        public static Type fromString(String string) {
+            return Type.valueOf(string.toLowerCase(Locale.US));
         }
 
     }

@@ -18,6 +18,7 @@
 package org.jivesoftware.smackx.xhtmlim.packet;
 
 import org.jivesoftware.smack.packet.PacketExtension;
+import org.jivesoftware.smack.util.XmlStringBuilder;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,20 +26,20 @@ import java.util.List;
 
 /**
  * An XHTML sub-packet, which is used by XMPP clients to exchange formatted text. The XHTML 
- * extension is only a subset of XHTML 1.0.<p>
- * 
+ * extension is only a subset of XHTML 1.0.
+ * <p>
  * The following link summarizes the requirements of XHTML IM:
- * <a href="http://www.jabber.org/jeps/jep-0071.html#sect-id2598018">Valid tags</a>.<p>
- * 
- * Warning: this is an non-standard protocol documented by
- * <a href="http://www.jabber.org/jeps/jep-0071.html">JEP-71</a>. Because this is a
- * non-standard protocol, it is subject to change.
+ * <a href="http://www.xmpp.org/extensions/xep-0071.html">XEP-0071: XHTML-IM</a>.
+ * </p>
  *
  * @author Gaston Dombiak
  */
 public class XHTMLExtension implements PacketExtension {
 
-    private List<String> bodies = new ArrayList<String>();
+    public static final String ELEMENT = "html";
+    public static final String NAMESPACE = "http://jabber.org/protocol/xhtml-im";
+
+    private List<CharSequence> bodies = new ArrayList<CharSequence>();
 
     /**
     * Returns the XML element name of the extension sub-packet root element.
@@ -47,7 +48,7 @@ public class XHTMLExtension implements PacketExtension {
     * @return the XML element name of the packet extension.
     */
     public String getElementName() {
-        return "html";
+        return ELEMENT;
     }
 
     /** 
@@ -57,7 +58,7 @@ public class XHTMLExtension implements PacketExtension {
      * @return the XML namespace of the packet extension.
      */
     public String getNamespace() {
-        return "http://jabber.org/protocol/xhtml-im";
+        return NAMESPACE;
     }
 
     /**
@@ -76,16 +77,16 @@ public class XHTMLExtension implements PacketExtension {
      * </pre>
      * 
      */
-    public String toXML() {
-        StringBuilder buf = new StringBuilder();
-        buf.append("<").append(getElementName()).append(" xmlns=\"").append(getNamespace()).append(
-            "\">");
+    @Override
+    public XmlStringBuilder toXML() {
+        XmlStringBuilder xml = new XmlStringBuilder(this);
+        xml.rightAngelBracket();
         // Loop through all the bodies and append them to the string buffer
-        for (String body : getBodies()) {
-            buf.append(body);
+        for (CharSequence body : getBodies()) {
+            xml.append(body);
         }
-        buf.append("</").append(getElementName()).append(">");
-        return buf.toString();
+        xml.closeElement(this);
+        return xml;
     }
 
     /**
@@ -93,9 +94,9 @@ public class XHTMLExtension implements PacketExtension {
      *
      * @return a List of the bodies in the packet.
      */
-    public List<String> getBodies() {
+    public List<CharSequence> getBodies() {
         synchronized (bodies) {
-            return Collections.unmodifiableList(new ArrayList<String>(bodies));
+            return Collections.unmodifiableList(new ArrayList<CharSequence>(bodies));
         }
     }
 
@@ -104,7 +105,7 @@ public class XHTMLExtension implements PacketExtension {
      *
      * @param body the body to add.
      */
-    public void addBody(String body) {
+    public void addBody(CharSequence body) {
         synchronized (bodies) {
             bodies.add(body);
         }
@@ -116,7 +117,9 @@ public class XHTMLExtension implements PacketExtension {
      * @return the number of bodies in the XHTML packet.
      */
     public int getBodiesCount() {
-        return bodies.size();
+        synchronized (bodies) {
+            return bodies.size();
+        }
     }
 
 }

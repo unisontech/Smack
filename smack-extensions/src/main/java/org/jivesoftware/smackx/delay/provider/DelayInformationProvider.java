@@ -1,6 +1,6 @@
 /**
  *
- * Copyright the original author or authors
+ * Copyright © 2014 Florian Schmaus
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,51 +19,19 @@ package org.jivesoftware.smackx.delay.provider;
 import java.text.ParseException;
 import java.util.Date;
 
-import org.jivesoftware.smack.packet.PacketExtension;
-import org.jivesoftware.smack.provider.PacketExtensionProvider;
 import org.jxmpp.util.XmppDateTime;
-import org.jivesoftware.smackx.delay.packet.DelayInformation;
-import org.xmlpull.v1.XmlPullParser;
 
 /**
  * The DelayInformationProvider parses DelayInformation packets.
  * 
- * @author Gaston Dombiak
- * @author Henning Staib
+ * @author Florian Schmaus
  */
-public class DelayInformationProvider implements PacketExtensionProvider {
-    
-    public PacketExtension parseExtension(XmlPullParser parser) throws Exception {
-        String stampString = (parser.getAttributeValue("", "stamp"));
-        Date stamp = null;
-        
-        try {
-            stamp = XmppDateTime.parseDate(stampString);
-        }
-        catch (ParseException parseExc) {
-            /*
-             * if date could not be parsed but XML is valid, don't shutdown
-             * connection by throwing an exception instead set timestamp to epoch 
-             * so that it is obviously wrong. 
-             */
-            if (stamp == null) {
-                stamp = new Date(0);
-            }
-        }
-        
-        
-        DelayInformation delayInformation = new DelayInformation(stamp);
-        delayInformation.setFrom(parser.getAttributeValue("", "from"));
-        String reason = parser.nextText();
+public class DelayInformationProvider extends AbstractDelayInformationProvider {
 
-        /*
-         * parser.nextText() returns empty string if there is no reason.
-         * DelayInformation API specifies that null should be returned in that
-         * case.
-         */
-        reason = "".equals(reason) ? null : reason;
-        delayInformation.setReason(reason);
-        
-        return delayInformation;
+    @SuppressWarnings("deprecation")
+    @Override
+    protected Date parseDate(String string) throws ParseException {
+        return XmppDateTime.parseXEP0082Date(string);
     }
+
 }
