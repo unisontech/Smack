@@ -160,8 +160,7 @@ public class PacketParserUtils {
      */
     public static Message parseMessage(XmlPullParser parser) throws Exception {
         Message message = new Message();
-        String id = parser.getAttributeValue("", "id");
-        message.setPacketID(id == null ? Packet.ID_NOT_AVAILABLE : id);
+        message.setPacketID(parser.getAttributeValue("", "id"));
         message.setTo(parser.getAttributeValue("", "to"));
         message.setFrom(parser.getAttributeValue("", "from"));
         String typeString = parser.getAttributeValue("", "type");
@@ -288,13 +287,13 @@ public class PacketParserUtils {
      * @throws XmlPullParserException
      * @throws IOException
      */
-    public static String parseElement(XmlPullParser parser) throws XmlPullParserException, IOException {
+    public static CharSequence parseElement(XmlPullParser parser) throws XmlPullParserException, IOException {
         assert(parser.getEventType() == XmlPullParser.START_TAG);
         return parseContentDepth(parser, parser.getDepth());
     }
 
     /**
-     * Returns the content of a element as string.
+     * Returns the content of a element.
      * <p>
      * The parser must be positioned on the START_TAG of the element which content is going to get
      * returned. If the current element is the empty element, then the empty string is returned. If
@@ -305,11 +304,11 @@ public class PacketParserUtils {
      * Note that only the outermost namespace attributes ("xmlns") will be returned, not nested ones.
      * 
      * @param parser the XML pull parser
-     * @return the content of a tag as string
+     * @return the content of a tag
      * @throws XmlPullParserException if parser encounters invalid XML
      * @throws IOException if an IO error occurs
      */
-    public static String parseContent(XmlPullParser parser)
+    public static CharSequence parseContent(XmlPullParser parser)
                     throws XmlPullParserException, IOException {
         assert(parser.getEventType() == XmlPullParser.START_TAG);
         if (parser.isEmptyElementTag()) {
@@ -338,7 +337,7 @@ public class PacketParserUtils {
      * @throws XmlPullParserException
      * @throws IOException
      */
-    public static String parseContentDepth(XmlPullParser parser, int depth) throws XmlPullParserException, IOException {
+    public static CharSequence parseContentDepth(XmlPullParser parser, int depth) throws XmlPullParserException, IOException {
         XmlStringBuilder xml = new XmlStringBuilder();
         int event = parser.getEventType();
         boolean isEmptyElement = false;
@@ -389,7 +388,7 @@ public class PacketParserUtils {
             }
             event = parser.next();
         }
-        return xml.toString();
+        return xml;
     }
 
     /**
@@ -408,14 +407,12 @@ public class PacketParserUtils {
         Presence presence = new Presence(type);
         presence.setTo(parser.getAttributeValue("", "to"));
         presence.setFrom(parser.getAttributeValue("", "from"));
-        String id = parser.getAttributeValue("", "id");
-        presence.setPacketID(id == null ? Packet.ID_NOT_AVAILABLE : id);
+        presence.setPacketID(parser.getAttributeValue("", "id"));
 
         String language = getLanguageAttribute(parser);
         if (language != null && !"".equals(language.trim())) {
         	presence.setLanguage(language);
         }
-        presence.setPacketID(id == null ? Packet.ID_NOT_AVAILABLE : id);
 
         // Parse sub-elements
         boolean done = false;
@@ -782,7 +779,7 @@ public class PacketParserUtils {
             String namespace = parser.getNamespace();
             if (StreamError.NAMESPACE.equals(namespace)) {
                 String name = parser.getName();
-                if (name.equals("text") && !parser.isEmptyElementTag()) {
+                if (name.equals(Packet.TEXT) && !parser.isEmptyElementTag()) {
                     parser.next();
                     text = parser.getText();
                 }
@@ -825,7 +822,7 @@ public class PacketParserUtils {
         while (!done) {
             int eventType = parser.next();
             if (eventType == XmlPullParser.START_TAG) {
-                if (parser.getName().equals("text")) {
+                if (parser.getName().equals(Packet.TEXT)) {
                     message = parser.nextText();
                 }
                 else {
@@ -995,15 +992,15 @@ public class PacketParserUtils {
      *
      */
     public static class UnparsedResultIQ extends IQ {
-        public UnparsedResultIQ(String content) {
-            this.str = content;
+        public UnparsedResultIQ(CharSequence content) {
+            this.content = content;
         }
 
-        private final String str;
+        private final CharSequence content;
 
         @Override
-        public String getChildElementXML() {
-            return this.str;
+        public CharSequence getChildElementXML() {
+            return this.content;
         }
     }
 }
