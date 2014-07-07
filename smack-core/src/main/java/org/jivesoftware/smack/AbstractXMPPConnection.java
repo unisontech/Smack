@@ -1089,17 +1089,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
     }
 
-    protected void waitForNotifyOnLock(Object lock) {
-        synchronized(lock) {
-            try {
-                lock.wait(getPacketReplyTimeout());
-            }
-            catch (InterruptedException e) {
-                LOGGER.log(Level.WARNING, "waitForNotifyOnLock encountered exception", e);
-            }
-        }
-    }
-
     @Override
     public RosterStore getRosterStore() {
         return config.getRosterStore();

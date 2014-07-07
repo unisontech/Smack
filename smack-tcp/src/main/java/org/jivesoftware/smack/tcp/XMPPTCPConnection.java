@@ -154,9 +154,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private static boolean shouldUseSmIfAvailabeAsDefault = true;
 
     /**
-     * Set to some value if Stream is managed
+     * Set to the server generated stream ID value, send to us from the server within an
+     * {@link Enabled} stanza.
      */
     private String smSessionId;
+
+    /**
+     * The stream ID of the stream that is currently resumable, ie. the stream we hold the state
+     * for in {@link #clientHandledStanzasCount}, {@link #serverHandledStanzasCount} and
+     * {@link #unacknowledgedStanzas}.
+     */
+    private String smResumableSessionId;
 
     private final Object smLock = new Object();
 
@@ -330,18 +338,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             useCompression();
         }
 
-        if (smSessionId != null) {
+        if (smResumableSessionId != null) {
             // We have a record of an previous session id, try to resume the stream
             Enable enable = new Enable(true);
             // TODO send packet without increasing stanza counters
-            sendPacket(enable);
-            waitForNotifyOnLock(smLock);
+            sendStanzaAndWaitForNotifyOnLock(enable, smLock);
             if (smEnabled && smServerAllowsResumption) {
-                Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
-                // TODO send packet without increasing stanza counters
-                sendPacket(resume);
-                waitForNotifyOnLock(smLock);
+                Resume resume = new Resume(clientHandledStanzasCount, smResumableSessionId);
+                // TODO send packet without increasing stanza counters? SM is enabled, but we are
+                // going to resume a previous stream, so we likely should send the resume stanza
+                // without increasing the counter.
+                sendStanzaAndWaitForNotifyOnLock(resume, smLock);
                 if (smResumed) {
+                    // We successfully resumed the stream, be done here
+                    authenticated();
                     return;
                 }
                 else {
@@ -350,7 +360,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 }
             }
             else if (smEnabled) {
-                // XEP198 is not really clear if this could happen, ie. server sends enabled but with resume=false
+                // XEP-198 is not really clear if this could happen, ie. server sends enabled but with resume=false
                 throw new IllegalStateException();
             }
             else {
@@ -378,14 +388,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         anonymous = false;
 
         if (smAvailable && shouldUseSmIfAvailable) {
+            // Remove what is maybe left from previously stream managed sessions
+            unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
+            smResumableSessionId = null;
+            clientHandledStanzasCount = 0;
+            serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
             Enable enable = new Enable();
-            sendPacket(enable);
-            waitForNotifyOnLock(smLock);
+            sendStanzaAndWaitForNotifyOnLock(enable, smLock);
             if (!smEnabled) {
-                
+                LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
+            smResumableSessionId = smSessionId;
         }
+
         // Set presence to online.
         if (config.isSendPresence()) {
             sendPacket(new Presence(Presence.Type.available));
@@ -393,7 +409,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         // Stores the authentication for future reconnection
         setLoginInfo(username, password, resource);
+    }
 
+    private void authenticated() {
         // If debugging is enabled, change the the debug window title to include the
         // name we are now logged-in as.
         // If DEBUG_ENABLED was set to true AFTER the connection was created the debugger
@@ -509,6 +527,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     @Override
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
+        if (smEnabled) {
+            unacknowledgedStanzas.offer(packet);
+        }
         packetWriter.sendPacket(packet);
     }
 
@@ -1070,10 +1091,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         private void parsePackets(Thread thread) {
             try {
                 int eventType = parser.getEventType();
+                int stanzaDepth = parser.getDepth();
                 do {
                     if (eventType == XmlPullParser.START_TAG) {
-                        // TOOD AtomicInteger required? (incr by packetreader thread, ready by others?)
-                        clientHandledStanzasCount++;
                         int parserDepth = parser.getDepth();
                         String name = parser.getName();
                         ParsingExceptionCallback callback = getParsingExceptionCallback();
@@ -1177,9 +1197,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         else if (Enabled.ELEMENT.equals(name)) {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
-                                // TODO which purpose does the stream id server at this stage? It
-                                // seems to be different then the one in the resume element, so we
-                                // should not do "smSessionId = enabled.getId();" here.
+                                smSessionId = enabled.getId();
                                 smServerAllowsResumption = true;
                             }
                             smEnabled = true;
@@ -1198,11 +1216,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                         else if (Resumed.ELEMENT.equals(name)) {
                             Resumed resumed = ParseStreamManagement.resumed(parser);
-                            if (!smSessionId.equals(resumed.getPrevId())) {
+                            if (!smResumableSessionId.equals(resumed.getPrevId())) {
                                 throw new IllegalStateException("Session ID does not match previd of 'resumed' stanza");
                             }
-                            long serverHeight = resumed.getHandledCount();
-                            // TODO re-send delta stanza to serverHeight
+                            // First, drop the stanzas already handled by the server
+                            processHandledCount(resumed.getHandledCount());
+                            // Then re-send what is left in the unacknowledged queue
+                            for (Packet stanza : unacknowledgedStanzas) {
+                                packetWriter.sendPacket(stanza);
+                            }
                             smResumed = true;
                             synchronized(smLock) {
                                 smLock.notify();
@@ -1211,17 +1233,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         else if (AckAnswer.ELEMENT.equals(name)) {
                             assert(smEnabled && smAvailable);
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
-                            long ackedStanzasCount = ackAnswer.getHandledCount() - serverHandledStanzasCount;
-                            for (long i = 0; i < ackedStanzasCount; i++) {
-                                Packet ackedPacket = unacknowledgedStanzas.poll();
-                                // If the server ack'ed a stanza, then it must be in ithe
-                                // unacknowledged stanza queue. There can be no exception.
-                                assert(ackedPacket != null);
-                                for (PacketListener listener : stanzaAcknowledgedListeners) {
-                                    listener.processPacket(ackedPacket);
-                                }
-                            }
-                            serverHandledStanzasCount = ackAnswer.getHandledCount();
+                            processHandledCount(ackAnswer.getHandledCount());
                         }
                         else if (AckRequest.ELEMENT.equals(name)) {
                             // AckRequest stanzas are trival, no need to parse them
@@ -1237,6 +1249,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         if (parser.getName().equals("stream")) {
                             // Disconnect the connection
                             disconnect();
+                        }
+                        else if (parser.getDepth() == stanzaDepth) {
+                            clientHandledStanzasCount++;
                         }
                     }
                     eventType = parser.next();
@@ -1256,6 +1271,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             }
         }
 
+        private void processHandledCount(long handledCount) throws NotConnectedException {
+            long ackedStanzasCount = handledCount - serverHandledStanzasCount;
+            for (long i = 0; i < ackedStanzasCount; i++) {
+                Packet ackedPacket = unacknowledgedStanzas.poll();
+                // If the server ack'ed a stanza, then it must be in the
+                // unacknowledged stanza queue. There can be no exception.
+                assert(ackedPacket != null);
+                for (PacketListener listener : stanzaAcknowledgedListeners) {
+                    listener.processPacket(ackedPacket);
+                }
+            }
+            serverHandledStanzasCount = handledCount;
+        }
+ 
         private void parseFeatures(XmlPullParser parser) throws Exception {
             boolean startTLSReceived = false;
             boolean startTLSRequired = false;
@@ -1407,9 +1436,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             if (done) {
                 throw new NotConnectedException();
             }
-            if (smEnabled) {
-                unacknowledgedStanzas.offer(packet);
-            }
+
             try {
                 queue.put(packet);
             }
@@ -1572,5 +1599,18 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     public boolean removeStanzaAcknowledgedListener(PacketListener listener) {
         return stanzaAcknowledgedListeners.remove(listener);
+    }
+    
+
+    protected void sendStanzaAndWaitForNotifyOnLock(Packet stanza, Object lock) throws NotConnectedException {
+        synchronized(lock) {
+            packetWriter.sendPacket(stanza);
+            try {
+                lock.wait(getPacketReplyTimeout());
+            }
+            catch (InterruptedException e) {
+                LOGGER.log(Level.WARNING, "waitForNotifyOnLock encountered exception", e);
+            }
+        }
     }
 }

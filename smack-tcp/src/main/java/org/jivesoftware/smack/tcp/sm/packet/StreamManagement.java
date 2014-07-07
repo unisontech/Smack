@@ -46,15 +46,40 @@ public class StreamManagement {
         }
     }
 
-    public static class Enable extends Packet {
-        public static final String ELEMENT = "enable";
+    public static abstract class AbstractEnable extends Packet {
 
         /**
-         * Client's preferred maximum resumption time in seconds (optional).
+         * Preferred maximum resumption time in seconds (optional).
          */
-        private int max = -1;
+        protected int max = -1;
 
-        private boolean resume = false;
+        protected boolean resume = false;
+
+        protected void maybeAddResumeAttributeTo(XmlStringBuilder xml) {
+            if (resume) {
+                // XEP 198 never mentions the case where resume='false', it's either set to true or
+                // not set at all. We reflect this in this code part
+                xml.attribute("resume", "true");
+            }
+        }
+
+        protected void maybeAddMaxAttributeTo(XmlStringBuilder xml) {
+            if (max > 0) {
+                xml.attribute("max", Integer.toString(max));
+            }
+        }
+
+        public boolean resumeSet() {
+            return resume;
+        }
+
+        @Override
+        public abstract CharSequence toXML();
+
+    }
+
+    public static class Enable extends AbstractEnable {
+        public static final String ELEMENT = "enable";
 
         public Enable() {
         }
@@ -73,20 +98,14 @@ public class StreamManagement {
             XmlStringBuilder xml = new XmlStringBuilder();
             xml.halfOpenElement(ELEMENT);
             xml.xmlnsAttribute(NAMESPACE);
-            if (resume) {
-                // XEP 198 never mentions the case where resume='false', it's either set to true or
-                // not set at all. We reflect this in this code part
-                xml.attribute("resume", "true");
-            }
-            if (max > 0) {
-                xml.attribute("max", Integer.toString(max));
-            }
+            maybeAddResumeAttributeTo(xml);
+            maybeAddMaxAttributeTo(xml);
             xml.closeEmptyElement();
             return xml;
         }
     }
 
-    public static class Enabled extends Packet {
+    public static class Enabled extends AbstractEnable {
         public static final String ELEMENT = "enabled";
 
         /**
@@ -98,16 +117,6 @@ public class StreamManagement {
          * TODO javadoc
          */
         private final String location;
-
-        /**
-         * TODO javadoc
-         */
-        private final boolean resume;
-
-        /**
-         * Server's preferred maximum resumption time in seconds (optional).
-         */
-        private int max = -1;
 
         public Enabled(String id, boolean resume) {
             this(id, resume, null, -1);
@@ -128,23 +137,15 @@ public class StreamManagement {
             return location;
         }
 
-        public boolean resumeSet() {
-            return resume;
-        }
-
         @Override
         public CharSequence toXML() {
             XmlStringBuilder xml = new XmlStringBuilder();
             xml.halfOpenElement(ELEMENT);
             xml.xmlnsAttribute(NAMESPACE);
             xml.optAttribute("id", id);
-            if (resume) {
-                xml.attribute("resume", Boolean.toString(resume));
-            }
+            maybeAddResumeAttributeTo(xml);
             xml.optAttribute("location", location);
-            if (max > 0) {
-                xml.attribute("max", Integer.toString(max));
-            }
+            maybeAddMaxAttributeTo(xml);
             xml.closeEmptyElement();
             return xml;
         }
