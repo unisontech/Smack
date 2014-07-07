@@ -360,7 +360,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 }
             }
             else if (smEnabled) {
-                // XEP-198 is not really clear if this could happen, ie. server sends enabled but with resume=false
+                // XEP-198 is not really clear if this could happen, ie. server sends enabled but
+                // without 'resume' attribute or with resume=false
                 throw new IllegalStateException();
             }
             else {
@@ -529,6 +530,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
         if (smEnabled) {
             unacknowledgedStanzas.offer(packet);
+            for (PacketFilter requestAckPredicate : requestAckPredicates) {
+                if (requestAckPredicate.accept(packet)) {
+                    sendPacket(new AckRequest());
+                    break;
+                }
+            }
         }
         packetWriter.sendPacket(packet);
     }
@@ -1278,8 +1285,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 // If the server ack'ed a stanza, then it must be in the
                 // unacknowledged stanza queue. There can be no exception.
                 assert(ackedPacket != null);
-                for (PacketListener listener : stanzaAcknowledgedListeners) {
-                    listener.processPacket(ackedPacket);
+                synchronized (stanzaAcknowledgedListeners) {
+                    for (PacketListener listener : stanzaAcknowledgedListeners) {
+                        listener.processPacket(ackedPacket);
+                    }
                 }
             }
             serverHandledStanzasCount = handledCount;
@@ -1586,19 +1595,27 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean addRequestAckPredicate(PacketFilter predicate) {
-        return requestAckPredicates.add(predicate);
+        synchronized (requestAckPredicates) {
+            return requestAckPredicates.add(predicate);
+        }
     }
 
     public boolean removeRequestAckPredicate(PacketFilter predicate) {
-        return requestAckPredicates.remove(predicate);
+        synchronized (requestAckPredicates) {
+            return requestAckPredicates.remove(predicate);
+        }
     }
 
     public boolean addStanzaAcknowledgedListener(PacketListener listener) {
-        return stanzaAcknowledgedListeners.add(listener);
+        synchronized (stanzaAcknowledgedListeners) {
+            return stanzaAcknowledgedListeners.add(listener);
+        }
     }
 
     public boolean removeStanzaAcknowledgedListener(PacketListener listener) {
-        return stanzaAcknowledgedListeners.remove(listener);
+        synchronized (stanzaAcknowledgedListeners) {
+            return stanzaAcknowledgedListeners.remove(listener);
+        }
     }
     
 

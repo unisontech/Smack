@@ -272,7 +272,7 @@ public class StreamManagement {
 
         @Override
         public CharSequence toXML() {
-            return '<' + ELEMENT + "xmlns='" + NAMESPACE + '\'';
+            return '<' + ELEMENT + "xmlns='" + NAMESPACE + "'/>";
         }
     }
 }
