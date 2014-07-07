@@ -56,6 +56,9 @@ public class StreamManagement {
 
         private boolean resume = false;
 
+        public Enable() {
+        }
+
         public Enable(boolean resume) {
             this.resume = resume;
         }
@@ -71,7 +74,9 @@ public class StreamManagement {
             xml.halfOpenElement(ELEMENT);
             xml.xmlnsAttribute(NAMESPACE);
             if (resume) {
-                xml.attribute("resume", Boolean.toString(resume));
+                // XEP 198 never mentions the case where resume='false', it's either set to true or
+                // not set at all. We reflect this in this code part
+                xml.attribute("resume", "true");
             }
             if (max > 0) {
                 xml.attribute("max", Integer.toString(max));
@@ -157,6 +162,10 @@ public class StreamManagement {
             this.error = error;
         }
 
+        public XMPPError getXMPPError() {
+            return error;
+        }
+
         @Override
         public CharSequence toXML() {
             XmlStringBuilder xml = new XmlStringBuilder();
@@ -208,13 +217,15 @@ public class StreamManagement {
     }
 
     public static class Resume extends AbstractResume {
+        public static final String ELEMENT = "resume";
+
         public Resume(long handledCount, String previd) {
             super(handledCount, previd);
         }
 
         @Override
         String getElement() {
-            return "resume";
+            return ELEMENT;
         }
     }
 

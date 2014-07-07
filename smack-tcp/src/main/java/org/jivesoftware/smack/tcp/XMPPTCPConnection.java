@@ -31,10 +31,12 @@ import org.jivesoftware.smack.SmackException.SecurityRequiredException;
 import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
+import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.parsing.ParsingExceptionCallback;
 import org.jivesoftware.smack.parsing.UnparsablePacket;
 import org.jivesoftware.smack.sasl.SASLMechanism.Challenge;
@@ -43,6 +45,7 @@ import org.jivesoftware.smack.sasl.SASLMechanism.Success;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enable;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resume;
@@ -148,7 +151,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private final Object compressionLock = new Object();
 
-    private static boolean smEnabledPerDefault = true;
+    private static boolean shouldUseSmIfAvailabeAsDefault = true;
 
     /**
      * Set to some value if Stream is managed
@@ -158,20 +161,27 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final Object smLock = new Object();
 
     /**
-     * Set to true if Stream Management is active. Is also used a synchronization point.
-     */
-    private boolean smActive;
-
-    /**
      * Indicates whether Stream Management (XEP-198) is supported by the server, i.e. if it's
      * announced in the servers features.
      */
     private boolean smAvailable;
 
+    private boolean smServerAllowsResumption;
+
+    /**
+     * Set to true if Stream Management is active. Is also used a synchronization point.
+     */
+    private boolean smEnabled;
+
+    /**
+     * Set to true if the stream got resumed, ie. the server send a 'resumed' stanza
+     */
+    private boolean smResumed;
+
     /**
      * Indicates whether Stream Management (XEP-198) should be used if it's supported by the server.
      */
-    private boolean smEnabled = smEnabledPerDefault;
+    private boolean shouldUseSmIfAvailable = shouldUseSmIfAvailabeAsDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
     private Queue<Packet> unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
@@ -321,23 +331,31 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         if (smSessionId != null) {
-            // TODO Resume stream by sending 'resume' stanza?
-            // Is this the right order: login, compression then resume?
-            Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
-            // TODO send this (without increasing outgoing stanza count ?)
-            synchronized(smLock) {
-                try {
-                    smLock.wait(getPacketReplyTimeout());
+            // We have a record of an previous session id, try to resume the stream
+            Enable enable = new Enable(true);
+            // TODO send packet without increasing stanza counters
+            sendPacket(enable);
+            waitForNotifyOnLock(smLock);
+            if (smEnabled && smServerAllowsResumption) {
+                Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
+                // TODO send packet without increasing stanza counters
+                sendPacket(resume);
+                waitForNotifyOnLock(smLock);
+                if (smResumed) {
+                    return;
                 }
-                catch (InterruptedException e) {
-                    LOGGER.log(Level.WARNING, "smLock.wait()", e);
+                else {
+                    // TODO what to do here? throw exception? Continue with normal login process?
+                    throw new SmackException("Could not resume stream");
                 }
             }
-            if (smActive) {
-                return;
-            } else {
-                // TODO what to do here? throw exception? Continue with normal login process?
-                throw new SmackException("Could not resume stream");
+            else if (smEnabled) {
+                // XEP198 is not really clear if this could happen, ie. server sends enabled but with resume=false
+                throw new IllegalStateException();
+            }
+            else {
+                // Don't throw an exception here, just resume with resource binding like a normal login
+                LOGGER.log(Level.WARNING, "Could not enable stream management and resume stream");
             }
         }
 
@@ -359,6 +377,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         authenticated = true;
         anonymous = false;
 
+        if (smAvailable && shouldUseSmIfAvailable) {
+            // XEP-198 3. Enabling Stream Management
+            Enable enable = new Enable();
+            sendPacket(enable);
+            waitForNotifyOnLock(smLock);
+            if (!smEnabled) {
+                
+            }
+        }
         // Set presence to online.
         if (config.isSendPresence()) {
             sendPacket(new Presence(Presence.Type.available));
@@ -473,7 +500,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         authenticated = false;
         connected = false;
         usingTLS = false;
-        smActive = false;
+        smServerAllowsResumption = false;
+        smEnabled = false;
+        smResumed = false;
         reader = null;
         writer = null;
     }
@@ -1145,27 +1174,41 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // to be sent by the server
                             resetParser();
                         }
-                        else if (name.equals(Enabled.ELEMENT)) {
+                        else if (Enabled.ELEMENT.equals(name)) {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
-                                smSessionId = enabled.getId();
-                                // TODO resume stream here
+                                // TODO which purpose does the stream id server at this stage? It
+                                // seems to be different then the one in the resume element, so we
+                                // should not do "smSessionId = enabled.getId();" here.
+                                smServerAllowsResumption = true;
                             }
+                            smEnabled = true;
                             synchronized(smLock) {
-                                smActive = true;
                                 smLock.notify();
                             }
                         }
-                        else if (name.equals(Failed.ELEMENT)) {
+                        else if (Failed.ELEMENT.equals(name)) {
                             Failed failed = ParseStreamManagement.failed(parser);
+                            XMPPError xmppError = failed.getXMPPError();
+                            XMPPException xmppException = new XMPPErrorException("Stream Management failed", xmppError);
+                            setConnectionException(xmppException);
                             synchronized(smLock) {
                                 smLock.notify();
                             }
                         }
-                        else if (name.equals(Resumed.ELEMENT)) {
+                        else if (Resumed.ELEMENT.equals(name)) {
                             Resumed resumed = ParseStreamManagement.resumed(parser);
+                            if (!smSessionId.equals(resumed.getPrevId())) {
+                                throw new IllegalStateException("Session ID does not match previd of 'resumed' stanza");
+                            }
+                            long serverHeight = resumed.getHandledCount();
+                            // TODO re-send delta stanza to serverHeight
+                            smResumed = true;
+                            synchronized(smLock) {
+                                smLock.notify();
+                            }
                         }
-                        else if (name.equals(AckAnswer.ELEMENT)) {
+                        else if (AckAnswer.ELEMENT.equals(name)) {
                             assert(smEnabled && smAvailable);
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             long ackedStanzasCount = ackAnswer.getHandledCount() - serverHandledStanzasCount;
@@ -1180,7 +1223,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             }
                             serverHandledStanzasCount = ackAnswer.getHandledCount();
                         }
-                        else if (name.equals(AckRequest.ELEMENT)) {
+                        else if (AckRequest.ELEMENT.equals(name)) {
                             // AckRequest stanzas are trival, no need to parse them
                             if (smEnabled) {
                                 AckAnswer ackAnswer = new AckAnswer(clientHandledStanzasCount);
@@ -1364,7 +1407,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             if (done) {
                 throw new NotConnectedException();
             }
-            if (smActive) {
+            if (smEnabled) {
                 unacknowledgedStanzas.offer(packet);
             }
             try {
@@ -1511,8 +1554,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
-    public static void setSMEnabledPerDefault(boolean smEnabledPerDefault) {
-        XMPPTCPConnection.smEnabledPerDefault = smEnabledPerDefault;
+    public static void setShouldUseStreamManagementIfAvailableAsDefault(boolean shouldUseSmIfAvailabeAsDefault) {
+        XMPPTCPConnection.shouldUseSmIfAvailabeAsDefault = shouldUseSmIfAvailabeAsDefault;
     }
 
     public boolean addRequestAckPredicate(PacketFilter predicate) {
