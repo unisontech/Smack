@@ -154,17 +154,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private static boolean shouldUseSmIfAvailabeAsDefault = true;
 
     /**
-     * Set to the server generated stream ID value, send to us from the server within an
-     * {@link Enabled} stanza.
-     */
-    private String smSessionId;
-
-    /**
      * The stream ID of the stream that is currently resumable, ie. the stream we hold the state
      * for in {@link #clientHandledStanzasCount}, {@link #serverHandledStanzasCount} and
      * {@link #unacknowledgedStanzas}.
      */
-    private String smResumableSessionId;
+    private String smSessionId;
 
     private final Object smLock = new Object();
 
@@ -174,7 +168,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private boolean smAvailable;
 
-    private boolean smServerAllowsResumption;
+    //private boolean smServerAllowsResumption;
 
     /**
      * Set to true if Stream Management is active. Is also used a synchronization point.
@@ -338,35 +332,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             useCompression();
         }
 
-        if (smResumableSessionId != null) {
-            // We have a record of an previous session id, try to resume the stream
-            Enable enable = new Enable(true);
-            // TODO send packet without increasing stanza counters
-            sendStanzaAndWaitForNotifyOnLock(enable, smLock);
-            if (smEnabled && smServerAllowsResumption) {
-                Resume resume = new Resume(clientHandledStanzasCount, smResumableSessionId);
-                // TODO send packet without increasing stanza counters? SM is enabled, but we are
-                // going to resume a previous stream, so we likely should send the resume stanza
-                // without increasing the counter.
-                sendStanzaAndWaitForNotifyOnLock(resume, smLock);
-                if (smResumed) {
-                    // We successfully resumed the stream, be done here
-                    authenticated();
-                    return;
-                }
-                else {
-                    // TODO what to do here? throw exception? Continue with normal login process?
-                    throw new SmackException("Could not resume stream");
-                }
-            }
-            else if (smEnabled) {
-                // XEP-198 is not really clear if this could happen, ie. server sends enabled but
-                // without 'resume' attribute or with resume=false
-                throw new IllegalStateException();
-            }
-            else {
-                // Don't throw an exception here, just resume with resource binding like a normal login
-                LOGGER.log(Level.WARNING, "Could not enable stream management and resume stream");
+        if (smSessionId != null) {
+            Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
+            sendStanzaAndWaitForNotifyOnLock(resume, smLock);
+            if (smResumed) {
+                // We successfully resumed the stream, be done here
+                authenticated();
+                return;
             }
         }
 
@@ -391,7 +363,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (smAvailable && shouldUseSmIfAvailable) {
             // Remove what is maybe left from previously stream managed sessions
             unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
-            smResumableSessionId = null;
             clientHandledStanzasCount = 0;
             serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
@@ -400,7 +371,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             if (!smEnabled) {
                 LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
-            smResumableSessionId = smSessionId;
         }
 
         // Set presence to online.
@@ -519,7 +489,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         authenticated = false;
         connected = false;
         usingTLS = false;
-        smServerAllowsResumption = false;
         smEnabled = false;
         smResumed = false;
         reader = null;
@@ -1205,7 +1174,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
                                 smSessionId = enabled.getId();
-                                smServerAllowsResumption = true;
+                            } else {
+                                // Mark this a aon-resumable stream by setting smSessionId to null
+                                smSessionId = null;
                             }
                             smEnabled = true;
                             synchronized(smLock) {
@@ -1223,7 +1194,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                         else if (Resumed.ELEMENT.equals(name)) {
                             Resumed resumed = ParseStreamManagement.resumed(parser);
-                            if (!smResumableSessionId.equals(resumed.getPrevId())) {
+                            if (!smSessionId.equals(resumed.getPrevId())) {
                                 throw new IllegalStateException("Session ID does not match previd of 'resumed' stanza");
                             }
                             // First, drop the stanzas already handled by the server
@@ -1232,6 +1203,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             for (Packet stanza : unacknowledgedStanzas) {
                                 packetWriter.sendPacket(stanza);
                             }
+                            smEnabled = true;
                             smResumed = true;
                             synchronized(smLock) {
                                 smLock.notify();

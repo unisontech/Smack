@@ -16,6 +16,8 @@
  */
 package org.jivesoftware.smack.util;
 
+import java.util.Locale;
+
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -39,7 +41,12 @@ public class ParserUtils {
         String valueString = parser.getAttributeValue("", name);
         if (valueString == null)
             return null;
-        return Boolean.valueOf(valueString);
+        valueString = valueString.toLowerCase(Locale.US);
+        if (valueString.equals("true") || valueString.equals("0")) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public static boolean getBooleanAttribute(XmlPullParser parser, String name,
