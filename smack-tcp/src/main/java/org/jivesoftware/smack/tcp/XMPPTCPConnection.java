@@ -173,7 +173,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     /**
      * Set to true if Stream Management is active. Is also used a synchronization point.
      */
-    private boolean smEnabled;
+    private volatile boolean smEnabled;
 
     /**
      * Set to true if the stream got resumed, ie. the server send a 'resumed' stanza
@@ -1215,8 +1215,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                     packetWriter.sendPacket(stanza);
                                 }
                             }
-                            smEnabled = true;
-                            smResumed = true;
+                            smEnabled = smResumed = true;
                             synchronized(smLock) {
                                 smLock.notify();
                             }
@@ -1241,7 +1240,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // Disconnect the connection
                             disconnect();
                         }
-                        else if (parser.getDepth() == stanzaDepth) {
+                        else if (smEnabled && parser.getDepth() == stanzaDepth) {
                             clientHandledStanzasCount++;
                         }
                     }
@@ -1264,13 +1263,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         private void processHandledCount(long handledCount) throws NotConnectedException {
             long ackedStanzasCount = handledCount - serverHandledStanzasCount;
-            int handledCountInt;
-            if (handledCount > Integer.MAX_VALUE) {
-                handledCountInt = Integer.MAX_VALUE;
-            } else {
-                handledCountInt = (int) handledCount;
-            }
-            List<Packet> ackedStanzas = new ArrayList<Packet>(handledCountInt);
+            List<Packet> ackedStanzas = new ArrayList<Packet>(
+                            handledCount <= Integer.MAX_VALUE ? (int) handledCount
+                                            : Integer.MAX_VALUE);
             // Synchronize unacknowledged stanzas against putting them on the wire, to avoid
             // handling an ack for a stanza that has not been yet put into unacknowledgedStanzas
             synchronized (unacknowledgedStanzas) {
@@ -1347,7 +1342,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         if (parser.getNamespace().equals(StreamManagement.NAMESPACE)) {
                             smAvailable = true;
                         } else {
-                            LOGGER.warning("SM announced by server, but namespace not known'" + parser.getNamespace() + "'");
+                            LOGGER.warning("SM announced by server, but namespace not known '" + parser.getNamespace() + "'");
                         }
                     }
                 }
@@ -1670,7 +1665,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             return true;
         }
 
-        // The resumption time is over
+        // See if resumption time is over
         long current = System.currentTimeMillis();
         int clientResumptionTime = smClientMaxResumptionTime > 0 ? smClientMaxResumptionTime : Integer.MAX_VALUE;
         int serverResumptionTime = smServerMaxResumptimTime > 0 ? smServerMaxResumptimTime : Integer.MAX_VALUE;
