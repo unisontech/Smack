@@ -151,7 +151,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private final Object compressionLock = new Object();
 
-    private static boolean shouldUseSmIfAvailabeAsDefault = true;
+    private static boolean shouldUseSmAsDefault = true;
+
+    private static boolean shouldUseSmResumptionAsDefault = true;
 
     /**
      * The stream ID of the stream that is currently resumable, ie. the stream we hold the state
@@ -168,8 +170,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private boolean smAvailable;
 
-    //private boolean smServerAllowsResumption;
-
     /**
      * Set to true if Stream Management is active. Is also used a synchronization point.
      */
@@ -181,15 +181,27 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private boolean smResumed;
 
     /**
+     * The client's preferred maximum resumption time in seconds.
+     */
+    private int smClientMaxResumptionTime = -1;
+
+    /**
+     * The server's preferred maximum resumptim time in seconds.
+     */
+    private int smServerMaxResumptimTime = -1;
+
+    /**
      * Indicates whether Stream Management (XEP-198) should be used if it's supported by the server.
      */
-    private boolean shouldUseSmIfAvailable = shouldUseSmIfAvailabeAsDefault;
+    private boolean shouldUseSmIfAvailable = shouldUseSmAsDefault;
+    private boolean shouldUseSmResumptionIfAvailable = shouldUseSmResumptionAsDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
     private Queue<Packet> unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
     private Set<PacketListener> stanzaAcknowledgedListeners = new HashSet<PacketListener>();
     private Set<PacketFilter> requestAckPredicates = new HashSet<PacketFilter>();
 
+    private long shutdownTimestamp = 0;
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
@@ -366,7 +378,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             clientHandledStanzasCount = 0;
             serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
-            Enable enable = new Enable();
+            Enable enable = new Enable(shouldUseSmResumptionIfAvailable, smClientMaxResumptionTime);
             sendStanzaAndWaitForNotifyOnLock(enable, smLock);
             if (!smEnabled) {
                 LOGGER.log(Level.WARNING, "Could not enable stream mangement");
@@ -467,6 +479,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     @Override
     protected void shutdown() {
+        shutdownTimestamp = System.currentTimeMillis();
         if (packetReader != null) {
                 packetReader.shutdown();
         }
@@ -1174,6 +1187,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
                                 smSessionId = enabled.getId();
+                                smServerMaxResumptimTime = enabled.getMaxResumptionTime();
                             } else {
                                 // Mark this a aon-resumable stream by setting smSessionId to null
                                 smSessionId = null;
@@ -1413,8 +1427,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @param packet the packet to send.
          * @throws NotConnectedException 
          */
-        public void sendPacket(Packet packet) throws NotConnectedException {
+        protected void sendPacket(Packet packet) throws NotConnectedException {
             if (done) {
+                if (resumableStreamAvailable()) {
+                    // Don't throw a NotConnectedException is there is an resumable stream available
+                    return;
+                }
                 throw new NotConnectedException();
             }
 
@@ -1562,8 +1580,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
-    public static void setShouldUseStreamManagementIfAvailableAsDefault(boolean shouldUseSmIfAvailabeAsDefault) {
-        XMPPTCPConnection.shouldUseSmIfAvailabeAsDefault = shouldUseSmIfAvailabeAsDefault;
+    public static void setShouldUseStreamManagementAsDefault(boolean shouldUseSmAsDefault) {
+        XMPPTCPConnection.shouldUseSmAsDefault = shouldUseSmAsDefault;
+    }
+
+    public static void setShouldUseStreamManagementResumptionAsDefault(boolean shouldUseSmResumptionAsDefault) {
+        XMPPTCPConnection.shouldUseSmResumptionAsDefault = shouldUseSmResumptionAsDefault;
+    }
+
+    /**
+     * Set the preferred resumption time in seconds.
+     * @param resumptionTime the preferred resumption time in seconds
+     */
+    public void setPreferredResumptionTime(int resumptionTime) {
+        smClientMaxResumptionTime = resumptionTime;
     }
 
     public boolean addRequestAckPredicate(PacketFilter predicate) {
@@ -1591,7 +1621,24 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
     
 
-    protected void sendStanzaAndWaitForNotifyOnLock(Packet stanza, Object lock) throws NotConnectedException {
+    private boolean resumableStreamAvailable() {
+        // There is no resumable stream available
+        if (smSessionId == null)
+            return false;
+
+        // The resumption time is over
+        long current = System.currentTimeMillis();
+        int clientResumptionTime = smClientMaxResumptionTime > 0 ? smClientMaxResumptionTime : Integer.MAX_VALUE;
+        int serverResumptionTime = smServerMaxResumptimTime > 0 ? smServerMaxResumptimTime : Integer.MAX_VALUE;
+        long maxResumptionMillies = Math.max(clientResumptionTime, serverResumptionTime) * 1000;
+        if (shutdownTimestamp + maxResumptionMillies > current) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    private void sendStanzaAndWaitForNotifyOnLock(Packet stanza, Object lock) throws NotConnectedException {
         synchronized(lock) {
             packetWriter.sendPacket(stanza);
             try {

@@ -73,6 +73,14 @@ public class StreamManagement {
             return resume;
         }
 
+        /**
+         * Return the max resumption time in seconds.
+         * @return the max resumption time in seconds
+         */
+        public int getMaxResumptionTime() {
+            return max;
+        }
+
         @Override
         public abstract CharSequence toXML();
 
