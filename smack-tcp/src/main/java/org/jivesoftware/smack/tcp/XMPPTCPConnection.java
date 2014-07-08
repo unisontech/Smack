@@ -1271,7 +1271,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 handledCountInt = (int) handledCount;
             }
             List<Packet> ackedStanzas = new ArrayList<Packet>(handledCountInt);
-            // Synchronize unacknowledged stanzas against putting them on the wire
+            // Synchronize unacknowledged stanzas against putting them on the wire, to avoid
+            // handling an ack for a stanza that has not been yet put into unacknowledgedStanzas
             synchronized (unacknowledgedStanzas) {
                 for (long i = 0; i < ackedStanzasCount; i++) {
                     Packet ackedStanza = unacknowledgedStanzas.poll();
@@ -1532,6 +1533,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         // In order to guarantee the order of stanzas, we have to put the packet in
                         // the unacknowledgedStanza queue just before we put it on the wire
                         if (smEnabled) {
+                            // Synchronize unacknowledged stanzas against ack'ing stanzas, to avoid
+                            // handling an ack for a stanza that has not been yet put into unacknowledgedStanzas
                             synchronized (unacknowledgedStanzas) {
                                 unacknowledgedStanzas.offer(packet);
                                 putStanzaOnWire(packet);
