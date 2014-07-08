@@ -34,6 +34,7 @@ import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
 import org.jivesoftware.smack.filter.PacketFilter;
+import org.jivesoftware.smack.packet.Compress;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.XMPPError;
@@ -842,8 +843,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      *
      * @return true if stream compression negotiation was successful.
      * @throws IOException if the compress stanza could not be send
+     * @throws NotConnectedException 
      */
-    private boolean useCompression() throws IOException {
+    private boolean useCompression() throws IOException, NotConnectedException {
         // If stream compression was offered by the server and we want to use
         // compression then send compression request to the server
         if (authenticated) {
@@ -851,31 +853,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
-            synchronized (compressionLock) {
-                requestStreamCompression(compressionHandler.getCompressionMethod());
-                // Wait until compression is being used or a timeout happened
-                try {
-                    compressionLock.wait(getPacketReplyTimeout());
-                }
-                catch (InterruptedException e) {
-                    // Ignore.
-                }
-            }
+            sendStanzaAndWaitForNotifyOnLock(new Compress(compressionHandler.getCompressionMethod()), compressionLock);
             return isUsingCompression();
         }
         return false;
-    }
-
-    /**
-     * Request the server that we want to start using stream compression. When using TLS
-     * then negotiation of stream compression can only happen after TLS was negotiated. If TLS
-     * compression is being used the stream compression should not be used.
-     * @throws IOException if the compress stanza could not be send
-     */
-    private void requestStreamCompression(String method) throws IOException {
-        writer.write("<compress xmlns='http://jabber.org/protocol/compress'>");
-        writer.write("<method>" + method + "</method></compress>");
-        writer.flush();
     }
 
     /**
