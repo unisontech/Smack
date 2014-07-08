@@ -91,6 +91,7 @@ import java.security.Provider;
 import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -99,7 +100,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -197,11 +197,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private boolean shouldUseSmResumptionIfAvailable = shouldUseSmResumptionAsDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
-    private Queue<Packet> unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
+    private Queue<Packet> unacknowledgedStanzas;
     private Set<PacketListener> stanzaAcknowledgedListeners = new HashSet<PacketListener>();
     private Set<PacketFilter> requestAckPredicates = new HashSet<PacketFilter>();
-
-    private long shutdownTimestamp = 0;
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
@@ -374,7 +372,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         if (smAvailable && shouldUseSmIfAvailable) {
             // Remove what is maybe left from previously stream managed sessions
-            unacknowledgedStanzas = new ConcurrentLinkedQueue<Packet>();
+            unacknowledgedStanzas = new LinkedList<Packet>();
             clientHandledStanzasCount = 0;
             serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
@@ -479,7 +477,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     @Override
     protected void shutdown() {
-        shutdownTimestamp = System.currentTimeMillis();
         if (packetReader != null) {
                 packetReader.shutdown();
         }
@@ -511,7 +508,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     @Override
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
         if (smEnabled) {
-            unacknowledgedStanzas.offer(packet);
             for (PacketFilter requestAckPredicate : requestAckPredicates) {
                 if (requestAckPredicate.accept(packet)) {
                     sendPacket(new AckRequest());
@@ -954,7 +950,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private synchronized void notifyConnectionError(Exception e) {
         // Listeners were already notified of the exception, return right here.
         if ((packetReader == null || packetReader.done) &&
-                (packetWriter == null || packetWriter.done)) return;
+                (packetWriter == null || packetWriter.done())) return;
 
         // Closes the connection temporary. A reconnection is possible
         shutdown();
@@ -1214,8 +1210,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // First, drop the stanzas already handled by the server
                             processHandledCount(resumed.getHandledCount());
                             // Then re-send what is left in the unacknowledged queue
-                            for (Packet stanza : unacknowledgedStanzas) {
-                                packetWriter.sendPacket(stanza);
+                            synchronized (unacknowledgedStanzas) {
+                                for (Packet stanza : unacknowledgedStanzas) {
+                                    packetWriter.sendPacket(stanza);
+                                }
                             }
                             smEnabled = true;
                             smResumed = true;
@@ -1266,14 +1264,27 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         private void processHandledCount(long handledCount) throws NotConnectedException {
             long ackedStanzasCount = handledCount - serverHandledStanzasCount;
-            for (long i = 0; i < ackedStanzasCount; i++) {
-                Packet ackedPacket = unacknowledgedStanzas.poll();
-                // If the server ack'ed a stanza, then it must be in the
-                // unacknowledged stanza queue. There can be no exception.
-                assert(ackedPacket != null);
+            int handledCountInt;
+            if (handledCount > Integer.MAX_VALUE) {
+                handledCountInt = Integer.MAX_VALUE;
+            } else {
+                handledCountInt = (int) handledCount;
+            }
+            List<Packet> ackedStanzas = new ArrayList<Packet>(handledCountInt);
+            // Synchronize unacknowledged stanzas against putting them on the wire
+            synchronized (unacknowledgedStanzas) {
+                for (long i = 0; i < ackedStanzasCount; i++) {
+                    Packet ackedStanza = unacknowledgedStanzas.poll();
+                    // If the server ack'ed a stanza, then it must be in the
+                    // unacknowledged stanza queue. There can be no exception.
+                    assert (ackedStanza != null);
+                    ackedStanzas.add(ackedStanza);
+                }
+            }
+            for (Packet ackedStanza : ackedStanzas) {
                 synchronized (stanzaAcknowledgedListeners) {
                     for (PacketListener listener : stanzaAcknowledgedListeners) {
-                        listener.processPacket(ackedPacket);
+                        listener.processPacket(ackedStanza);
                     }
                 }
             }
@@ -1391,9 +1402,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         private Thread writerThread;
         private Writer writer;
 
-        private volatile boolean done;
-
+        /**
+         * Needs to be protected for unit testing purposes.
+         */
         protected AtomicBoolean shutdownDone = new AtomicBoolean(false);
+
+        /**
+         * If set, the packet writer is shut down
+         */
+        protected volatile Long shutdownTimestamp = null;
 
         /**
          * Creates a new packet writer with the specified connection.
@@ -1408,17 +1425,21 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         */ 
         void init() {
             writer = getWriter();
-            done = false;
             shutdownDone.set(false);
+            shutdownTimestamp = null;
 
             queue.start();
             writerThread = new Thread() {
                 public void run() {
-                    writePackets(this);
+                    writePackets();
                 }
             };
             writerThread.setName("Smack Packet Writer (" + getConnectionCounter() + ")");
             writerThread.setDaemon(true);
+        }
+
+        private boolean done() {
+            return shutdownTimestamp != null;
         }
 
         /**
@@ -1428,7 +1449,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @throws NotConnectedException 
          */
         protected void sendPacket(Packet packet) throws NotConnectedException {
-            if (done) {
+            if (done()) {
                 if (resumableStreamAvailable()) {
                     // Don't throw a NotConnectedException is there is an resumable stream available
                     return;
@@ -1462,7 +1483,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * packets will be written to the server.
          */
         void shutdown() {
-            done = true;
+            shutdownTimestamp = System.currentTimeMillis();
             queue.shutdown();
             synchronized(shutdownDone) {
                 if (!shutdownDone.get()) {
@@ -1482,7 +1503,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @return the next packet for writing.
          */
         private Packet nextPacket() {
-            if (done) {
+            if (done()) {
                 return null;
             }
 
@@ -1496,16 +1517,28 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             return packet;
         }
 
-        private void writePackets(Thread thisThread) {
+        private void putStanzaOnWire(Packet stanza) throws IOException {
+            writer.write(stanza.toXML().toString());
+        }
+
+        private void writePackets() {
             try {
                 // Open the stream.
                 openStream();
                 // Write out packets from the queue.
-                while (!done && (writerThread == thisThread)) {
+                while (!done()) {
                     Packet packet = nextPacket();
                     if (packet != null) {
-                        writer.write(packet.toXML().toString());
-
+                        // In order to guarantee the order of stanzas, we have to put the packet in
+                        // the unacknowledgedStanza queue just after we have put it on the wire
+                        if (smEnabled) {
+                            synchronized (unacknowledgedStanzas) {
+                                unacknowledgedStanzas.offer(packet);
+                                putStanzaOnWire(packet);
+                            }
+                        } else {
+                            putStanzaOnWire(packet);
+                        }
                         if (queue.isEmpty()) {
                             writer.flush();
                         }
@@ -1554,7 +1587,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             catch (IOException ioe) {
                 // The exception can be ignored if the the connection is 'done'
                 // or if the it was caused because the socket got closed
-                if (!(done || isSocketClosed())) {
+                if (!(done() || isSocketClosed())) {
                     shutdown();
                     notifyConnectionError(ioe);
                 }
@@ -1619,12 +1652,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             return stanzaAcknowledgedListeners.remove(listener);
         }
     }
-    
 
     private boolean resumableStreamAvailable() {
+        if (packetWriter == null)
+            return false;
+
         // There is no resumable stream available
         if (smSessionId == null)
             return false;
+
+        Long shutdownTimestamp = packetWriter.shutdownTimestamp;
+        // Seems like we are already reconnected, report true
+        if (shutdownTimestamp == null) {
+            return true;
+        }
 
         // The resumption time is over
         long current = System.currentTimeMillis();
