@@ -54,6 +54,7 @@ import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.StreamManagementFea
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
+import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smack.util.TLSUtils;
 import org.jivesoftware.smack.util.dns.HostAddress;
 import org.xmlpull.v1.XmlPullParser;
@@ -342,7 +343,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             useCompression();
         }
 
-        if (smSessionId != null) {
+        if (isSmResumptionPossible()) {
             Resume resume = new Resume(clientHandledStanzasCount, smSessionId);
             sendStanzaAndWaitForNotifyOnLock(resume, smLock);
             if (smResumed) {
@@ -1183,6 +1184,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
                                 smSessionId = enabled.getId();
+                                assert(StringUtils.isNotEmpty(smSessionId));
                                 smServerMaxResumptimTime = enabled.getMaxResumptionTime();
                             } else {
                                 // Mark this a aon-resumable stream by setting smSessionId to null
@@ -1625,12 +1627,24 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
+    public boolean isSmAvailable() {
+        return smAvailable;
+    }
+
+    public boolean isSmEnabled() {
+        return smEnabled;
+    }
+
+    public boolean isSmResumptionPossible() {
+        return smSessionId != null;
+    }
+
     private boolean resumableStreamAvailable() {
         if (packetWriter == null)
             return false;
 
         // There is no resumable stream available
-        if (smSessionId == null)
+        if (!isSmResumptionPossible())
             return false;
 
         Long shutdownTimestamp = packetWriter.shutdownTimestamp;
