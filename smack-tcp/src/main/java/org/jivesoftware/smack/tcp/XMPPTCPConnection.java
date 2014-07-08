@@ -1260,32 +1260,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 }
             }
         }
-
-        private void processHandledCount(long handledCount) throws NotConnectedException {
-            long ackedStanzasCount = handledCount - serverHandledStanzasCount;
-            List<Packet> ackedStanzas = new ArrayList<Packet>(
-                            handledCount <= Integer.MAX_VALUE ? (int) handledCount
-                                            : Integer.MAX_VALUE);
-            // Synchronize unacknowledged stanzas against putting them on the wire, to avoid
-            // handling an ack for a stanza that has not been yet put into unacknowledgedStanzas
-            synchronized (unacknowledgedStanzas) {
-                for (long i = 0; i < ackedStanzasCount; i++) {
-                    Packet ackedStanza = unacknowledgedStanzas.poll();
-                    // If the server ack'ed a stanza, then it must be in the
-                    // unacknowledged stanza queue. There can be no exception.
-                    assert (ackedStanza != null);
-                    ackedStanzas.add(ackedStanza);
-                }
-            }
-            for (Packet ackedStanza : ackedStanzas) {
-                synchronized (stanzaAcknowledgedListeners) {
-                    for (PacketListener listener : stanzaAcknowledgedListeners) {
-                        listener.processPacket(ackedStanza);
-                    }
-                }
-            }
-            serverHandledStanzasCount = handledCount;
-        }
  
         private void parseFeatures(XmlPullParser parser) throws Exception {
             boolean startTLSReceived = false;
@@ -1687,5 +1661,31 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 LOGGER.log(Level.WARNING, "waitForNotifyOnLock encountered exception", e);
             }
         }
+    }
+
+    private void processHandledCount(long handledCount) throws NotConnectedException {
+        long ackedStanzasCount = handledCount - serverHandledStanzasCount;
+        List<Packet> ackedStanzas = new ArrayList<Packet>(
+                        handledCount <= Integer.MAX_VALUE ? (int) handledCount
+                                        : Integer.MAX_VALUE);
+        // Synchronize unacknowledged stanzas against putting them on the wire, to avoid
+        // handling an ack for a stanza that has not been yet put into unacknowledgedStanzas
+        synchronized (unacknowledgedStanzas) {
+            for (long i = 0; i < ackedStanzasCount; i++) {
+                Packet ackedStanza = unacknowledgedStanzas.poll();
+                // If the server ack'ed a stanza, then it must be in the
+                // unacknowledged stanza queue. There can be no exception.
+                assert (ackedStanza != null);
+                ackedStanzas.add(ackedStanza);
+            }
+        }
+        for (Packet ackedStanza : ackedStanzas) {
+            synchronized (stanzaAcknowledgedListeners) {
+                for (PacketListener listener : stanzaAcknowledgedListeners) {
+                    listener.processPacket(ackedStanza);
+                }
+            }
+        }
+        serverHandledStanzasCount = handledCount;
     }
 }
