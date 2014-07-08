@@ -1530,7 +1530,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     Packet packet = nextPacket();
                     if (packet != null) {
                         // In order to guarantee the order of stanzas, we have to put the packet in
-                        // the unacknowledgedStanza queue just after we have put it on the wire
+                        // the unacknowledgedStanza queue just before we put it on the wire
                         if (smEnabled) {
                             synchronized (unacknowledgedStanzas) {
                                 unacknowledgedStanzas.offer(packet);
