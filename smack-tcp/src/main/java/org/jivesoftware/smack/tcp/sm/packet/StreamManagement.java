@@ -16,8 +16,8 @@
  */
 package org.jivesoftware.smack.tcp.sm.packet;
 
-import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.PacketExtension;
+import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
@@ -46,7 +46,7 @@ public class StreamManagement {
         }
     }
 
-    public static abstract class AbstractEnable extends Packet {
+    public static abstract class AbstractEnable extends StreamElement {
 
         /**
          * Preferred maximum resumption time in seconds (optional).
@@ -159,7 +159,7 @@ public class StreamManagement {
         }
     }
 
-    public static class Failed extends Packet {
+    public static class Failed extends StreamElement {
         public static final String ELEMENT = "failed";
 
         private XMPPError error;
@@ -193,7 +193,7 @@ public class StreamManagement {
 
     }
 
-    private static abstract class AbstractResume extends Packet {
+    private static abstract class AbstractResume extends StreamElement {
 
         private final long handledCount;
         private final String previd;
@@ -251,7 +251,7 @@ public class StreamManagement {
         }
     }
 
-    public static class AckAnswer extends Packet {
+    public static class AckAnswer extends StreamElement {
         public static final String ELEMENT = "a";
 
         private final long handledCount;
@@ -275,7 +275,7 @@ public class StreamManagement {
         }
     }
 
-    public static class AckRequest extends Packet {
+    public static class AckRequest extends StreamElement {
         public static final String ELEMENT = "r";
 
         @Override
