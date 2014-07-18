@@ -512,14 +512,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     @Override
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
-        if (smEnabled) {
-            try {
-                unacknowledgedStanzas.put(packet);
-            }
-            catch (InterruptedException e) {
-                throw new IllegalStateException(e);
-            }
-        }
         packetWriter.sendStreamElement(packet);
         if (smEnabled) {
             for (PacketFilter requestAckPredicate : requestAckPredicates) {
@@ -1488,6 +1480,24 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 while (!done()) {
                     StreamElement packet = nextStreamElement();
                     if (packet != null) {
+                        // Check if the stream element should be put to the unacknowledgedStanza
+                        // queue. Note that we can not do the put() in sendPacketInternal() and the
+                        // packet order is not stable at this point (sendPacketInternal() can be
+                        // called concurrently).
+                        if (smEnabled && packet instanceof Packet) {
+                            // If the unacknowledgedStanza queue is full, request an new ack from
+                            // the server in order to drain it
+                            if (unacknowledgedStanzas.size() >= XMPPTCPConnection.QUEUE_SIZE) {
+                                writer.write(new AckRequest().toXML().toString());
+                                writer.flush();
+                            }
+                            try {
+                                unacknowledgedStanzas.put((Packet) packet);
+                            }
+                            catch (InterruptedException e) {
+                                throw new IllegalStateException(e);
+                            }
+                        }
                         writer.write(packet.toXML().toString());
                         if (queue.isEmpty()) {
                             writer.flush();
