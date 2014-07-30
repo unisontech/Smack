@@ -63,6 +63,7 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -524,7 +525,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     private void connectUsingConfiguration(ConnectionConfiguration config) throws SmackException, IOException {
-        Exception exception = null;
         try {
             maybeResolveDns();
         }
@@ -534,7 +534,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         Iterator<HostAddress> it = config.getHostAddresses().iterator();
         List<HostAddress> failedAddresses = new LinkedList<HostAddress>();
         while (it.hasNext()) {
-            exception = null;
+            Exception exception = null;
             HostAddress hostAddress = it.next();
             String host = hostAddress.getFQDN();
             int port = hostAddress.getPort();
@@ -550,8 +550,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             }
             if (exception == null) {
                 // We found a host to connect to, break here
-                host = hostAddress.getFQDN();
-                port = hostAddress.getPort();
+                this.host = host;
+                this.port = port;
                 break;
             }
             hostAddress.setException(exception);
@@ -782,6 +782,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         // Proceed to do the handshake
         sslSocket.startHandshake();
+
+        final HostnameVerifier verifier = getConfiguration().getHostnameVerifier();
+        if (verifier == null) {
+                throw new IllegalStateException("No HostnameVerifier set. Use connectionConfiguration.setHostnameVerifier() to configure.");
+        } else if (!verifier.verify(getServiceName(), sslSocket.getSession())) {
+            throw new CertificateException("Hostname verification of certificate failed. Certificate does not authenticate " + getServiceName());
+        }
 
         //if (((SSLSocket) socket).getWantClientAuth()) {
         //    System.err.println("XMPPConnection wants client auth");

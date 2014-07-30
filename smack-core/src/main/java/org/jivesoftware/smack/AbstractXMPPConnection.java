@@ -168,7 +168,12 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
     protected XMPPInputOutputStream compressionHandler;
 
-    private final ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(2,
+    /**
+     * ExecutorService used to invoke the PacketListeners on newly arrived and parsed stanzas. It is
+     * important that we use a <b>single threaded ExecutorService</b> in order to guarantee that the
+     * PacketListeners are invoked in the same order the stanzas arrived.
+     */
+    private final ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(1,
                     new SmackExecutorThreadFactory(connectionCounterValue));
 
     /**
@@ -197,12 +202,12 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     /**
      * The used host to establish the connection to
      */
-    private String host;
+    protected String host;
 
     /**
      * The used port to establish the connection to
      */
-    private int port;
+    protected int port;
 
     /**
      * Set to true if the server requires the connection to be binded in order to continue.
