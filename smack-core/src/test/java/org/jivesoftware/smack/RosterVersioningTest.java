@@ -67,8 +67,6 @@ public class RosterVersioningTest {
         connection = new DummyConnection(conf);
         connection.connect();
 
-        connection.setRosterVersioningSupported();
-
         connection.login("rostertest", "secret");
     }
 

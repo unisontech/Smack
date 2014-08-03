@@ -41,6 +41,7 @@ import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Presence.Type;
+import org.xmlpull.v1.XmlPullParser;
 import org.igniterealtime.jbosh.BOSHClient;
 import org.igniterealtime.jbosh.BOSHClientConfig;
 import org.igniterealtime.jbosh.BOSHClientConnEvent;
@@ -526,14 +527,8 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         super.serverRequiresBinding();
     }
 
-    @Override
-    protected void serverSupportsSession() {
-        super.serverSupportsSession();
-    }
-
-    @Override
-    protected void serverSupportsAccountCreation() {
-        super.serverSupportsAccountCreation();
+    void parseFeatures0(XmlPullParser parser) throws Exception {
+        parseFeatures(parser);
     }
 
     /**

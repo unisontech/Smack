@@ -32,6 +32,8 @@ import org.jivesoftware.smack.util.XmlStringBuilder;
  */
 public class Bind extends IQ {
 
+    public static final String ELEMENT = "bind";
+    public static final String NAMESPACE = "urn:ietf:params:xml:ns:xmpp-bind";
     private String resource = null;
     private String jid = null;
 
@@ -56,15 +58,42 @@ public class Bind extends IQ {
     }
 
     @Override
-    public CharSequence getChildElementXML() {
+    public XmlStringBuilder getChildElementXML() {
         XmlStringBuilder xml = new XmlStringBuilder();
-        xml.halfOpenElement("bind");
-        xml.xmlnsAttribute("urn:ietf:params:xml:ns:xmpp-bind");
+        xml.halfOpenElement(ELEMENT);
+        xml.xmlnsAttribute(NAMESPACE);
         xml.rightAngelBracket();
         xml.optElement("resource", resource);
         xml.optElement("jid", jid);
-        xml.closeElement("bind");
-
+        xml.closeElement(ELEMENT);
         return xml;
+    }
+
+    public static class Feature implements Element {
+
+        private final String resource;
+        
+        public Feature(String resource) {
+            this.resource = resource;
+        }
+
+        public String getResource() {
+            return resource;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
+
+        @Override
+        public XmlStringBuilder toXML() {
+            XmlStringBuilder xml = new XmlStringBuilder(this);
+            xml.xmlnsAttribute(NAMESPACE).rightAngelBracket();
+            xml.element("resource", resource);
+            xml.closeElement(this);
+            return xml;
+        }
+        
     }
 }

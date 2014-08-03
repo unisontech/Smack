@@ -26,6 +26,7 @@ import org.jivesoftware.smack.PacketInterceptor;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.XMPPConnectionRegistry;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
+import org.jivesoftware.smack.packet.CapsExtension;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.PacketExtension;
@@ -38,7 +39,6 @@ import org.jivesoftware.smack.filter.PacketExtensionFilter;
 import org.jivesoftware.smack.util.Base64;
 import org.jivesoftware.smack.util.Cache;
 import org.jivesoftware.smackx.caps.cache.EntityCapsPersistentCache;
-import org.jivesoftware.smackx.caps.packet.CapsExtension;
 import org.jivesoftware.smackx.disco.NodeInformationProvider;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 import org.jivesoftware.smackx.disco.packet.DiscoverInfo;
@@ -74,8 +74,8 @@ import java.security.NoSuchAlgorithmException;
 public class EntityCapsManager extends Manager {
     private static final Logger LOGGER = Logger.getLogger(EntityCapsManager.class.getName());
 
-    public static final String NAMESPACE = "http://jabber.org/protocol/caps";
-    public static final String ELEMENT = "c";
+    public static final String NAMESPACE = CapsExtension.NAMESPACE;
+    public static final String ELEMENT = CapsExtension.ELEMENT;
 
     private static final Map<String, MessageDigest> SUPPORTED_HASHES = new HashMap<String, MessageDigest>();
     private static String DEFAULT_ENTITY_NODE = "http://www.igniterealtime.org/projects/smack";

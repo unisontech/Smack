@@ -19,6 +19,7 @@ package org.jivesoftware.smack;
 
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
+import org.jivesoftware.smack.packet.Mechanisms;
 import org.jivesoftware.smack.sasl.SASLAnonymous;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 import org.jivesoftware.smack.sasl.SASLMechanism;
@@ -29,7 +30,6 @@ import javax.security.auth.callback.CallbackHandler;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -128,7 +128,7 @@ public class SASLAuthentication {
     }
 
     private final AbstractXMPPConnection connection;
-    private Collection<String> serverMechanisms = new ArrayList<String>();
+//    private Collection<String> serverMechanisms = new ArrayList<String>();
     private SASLMechanism currentMechanism = null;
 
     /**
@@ -152,7 +152,7 @@ public class SASLAuthentication {
      * @return true if the server offered ANONYMOUS SASL as a way to authenticate users.
      */
     public boolean hasAnonymousAuthentication() {
-        return serverMechanisms.contains("ANONYMOUS");
+        return serverMechanisms().contains("ANONYMOUS");
     }
 
     /**
@@ -161,7 +161,7 @@ public class SASLAuthentication {
      * @return true if the server offered SASL authentication besides ANONYMOUS SASL.
      */
     public boolean hasNonAnonymousAuthentication() {
-        return !serverMechanisms.isEmpty() && (serverMechanisms.size() != 1 || !hasAnonymousAuthentication());
+        return !serverMechanisms().isEmpty() && (serverMechanisms().size() != 1 || !hasAnonymousAuthentication());
     }
 
     /**
@@ -299,17 +299,18 @@ public class SASLAuthentication {
             }
         }
     }
-    /**
-     * Sets the available SASL mechanism reported by the server. The server will report the
-     * available SASL mechanism once the TLS negotiation was successful. This information is
-     * stored and will be used when doing the authentication for logging in the user.
-     *
-     * @param mechanisms collection of strings with the available SASL mechanism reported
-     *                   by the server.
-     */
-    public void setAvailableSASLMethods(Collection<String> mechanisms) {
-        this.serverMechanisms = mechanisms;
-    }
+
+//    /**
+//     * Sets the available SASL mechanism reported by the server. The server will report the
+//     * available SASL mechanism once the TLS negotiation was successful. This information is
+//     * stored and will be used when doing the authentication for logging in the user.
+//     *
+//     * @param mechanisms collection of strings with the available SASL mechanism reported
+//     *                   by the server.
+//     */
+//    public void setAvailableSASLMethods(Collection<String> mechanisms) {
+//        this.serverMechanisms = mechanisms;
+//    }
 
     /**
      * Wrapper for {@link #challengeReceived(String, boolean)}, with <code>finalChallenge</code> set
@@ -404,12 +405,17 @@ public class SASLAuthentication {
                     continue;
                 }
             }
-            if (serverMechanisms.contains(mechanismName)) {
+            if (serverMechanisms().contains(mechanismName)) {
                 // Create a new instance of the SASLMechanism for every authentication attempt.
                 selectedMechanism = mechanism.instanceForAuthentication(connection);
                 break;
             }
         }
         return selectedMechanism;
+    }
+
+    private List<String> serverMechanisms() {
+        Mechanisms mechanisms = connection.getFeature(Mechanisms.ELEMENT, Mechanisms.NAMESPACE);
+        return mechanisms.getMechanisms();
     }
 }

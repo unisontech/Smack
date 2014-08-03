@@ -31,8 +31,10 @@ import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
+import org.jivesoftware.smack.packet.Compress;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.StartTls;
 import org.jivesoftware.smack.parsing.ParsingExceptionCallback;
 import org.jivesoftware.smack.parsing.UnparsablePacket;
 import org.jivesoftware.smack.sasl.packet.SaslStanzas.Challenge;
@@ -77,7 +79,6 @@ import java.security.Provider;
 import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -117,11 +118,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     private PacketWriter packetWriter;
     private PacketReader packetReader;
-
-    /**
-     * Collection of available stream compression methods offered by the server.
-     */
-    private Collection<String> compressionMethods;
 
     /**
      * Set to true by packet writer if the server acknowledged the compression
@@ -560,11 +556,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * Notification message saying that the server supports TLS so confirm the server that we
      * want to secure the connection.
      *
-     * @param required true when the server indicates that TLS is required.
+     * @param startTlsFeature
      * @throws IOException if an exception occurs.
      */
-    private void startTLSReceived(boolean required) throws IOException {
-        if (required && config.getSecurityMode() ==
+    private void startTLSReceived(StartTls startTlsFeature) throws IOException {
+        if (startTlsFeature.required() && config.getSecurityMode() ==
                 ConnectionConfiguration.SecurityMode.disabled) {
             notifyConnectionError(new IllegalStateException(
                     "TLS required by server but not allowed by connection configuration"));
@@ -575,6 +571,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             // Do not secure the connection using TLS since TLS was disabled
             return;
         }
+        // TODO change this when xep198 branch is marged to use sendPacketInternal method
         writer.write("<starttls xmlns=\"urn:ietf:params:xml:ns:xmpp-tls\"/>");
         writer.flush();
     }
@@ -700,27 +697,21 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     /**
-     * Sets the available stream compression methods offered by the server.
-     *
-     * @param methods compression methods offered by the server.
-     */
-    private void setAvailableCompressionMethods(Collection<String> methods) {
-        compressionMethods = methods;
-    }
-
-    /**
      * Returns the compression handler that can be used for one compression methods offered by the server.
      * 
      * @return a instance of XMPPInputOutputStream or null if no suitable instance was found
      * 
      */
     private XMPPInputOutputStream maybeGetCompressionHandler() {
-        if (compressionMethods != null) {
-            for (XMPPInputOutputStream handler : SmackConfiguration.getCompresionHandlers()) {
+        Compress compress = getFeature(Compress.ELEMENT, Compress.NAMESPACE);
+        if (compress == null) {
+            // Server does not support compression
+            return null;
+        }
+        for (XMPPInputOutputStream handler : SmackConfiguration.getCompresionHandlers()) {
                 String method = handler.getCompressionMethod();
-                if (compressionMethods.contains(method))
+                if (compress.getMethods().contains(method))
                     return handler;
-            }
         }
         return null;
     }
@@ -754,7 +745,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
             synchronized (compressionLock) {
-                requestStreamCompression(compressionHandler.getCompressionMethod());
+                writer.write((new Compress(compressionHandler.getCompressionMethod())).toXML().toString());
+                writer.flush();
                 // Wait until compression is being used or a timeout happened
                 try {
                     compressionLock.wait(getPacketReplyTimeout());
@@ -766,18 +758,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             return isUsingCompression();
         }
         return false;
-    }
-
-    /**
-     * Request the server that we want to start using stream compression. When using TLS
-     * then negotiation of stream compression can only happen after TLS was negotiated. If TLS
-     * compression is being used the stream compression should not be used.
-     * @throws IOException if the compress stanza could not be send
-     */
-    private void requestStreamCompression(String method) throws IOException {
-        writer.write("<compress xmlns='http://jabber.org/protocol/compress'>");
-        writer.write("<method>" + method + "</method></compress>");
-        writer.flush();
     }
 
     /**
@@ -1021,6 +1001,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                         else if (name.equals("features")) {
                             parseFeatures(parser);
+                            afterFeaturesReceived();
                         }
                         else if (name.equals("proceed")) {
                             try {
@@ -1106,77 +1087,16 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             }
         }
 
-        private void parseFeatures(XmlPullParser parser) throws Exception {
-            boolean startTLSReceived = false;
-            boolean startTLSRequired = false;
-            boolean done = false;
-            while (!done) {
-                int eventType = parser.next();
-
-                if (eventType == XmlPullParser.START_TAG) {
-                    if (parser.getName().equals("starttls")) {
-                        startTLSReceived = true;
-                    }
-                    else if (parser.getName().equals("mechanisms")) {
-                        // The server is reporting available SASL mechanisms. Store this information
-                        // which will be used later while logging (i.e. authenticating) into
-                        // the server
-                        getSASLAuthentication().setAvailableSASLMethods(
-                                        PacketParserUtils.parseMechanisms(parser));
-                    }
-                    else if (parser.getName().equals("bind")) {
-                        // The server requires the client to bind a resource to the stream
-                        serverRequiresBinding();
-                    }
-                    // Set the entity caps node for the server if one is send
-                    // See http://xmpp.org/extensions/xep-0115.html#stream
-                    else if (parser.getName().equals("c")) {
-                        String node = parser.getAttributeValue(null, "node");
-                        String ver = parser.getAttributeValue(null, "ver");
-                        if (ver != null && node != null) {
-                            String capsNode = node + "#" + ver;
-                            // In order to avoid a dependency from smack to smackx
-                            // we have to set the services caps node in the connection
-                            // and not directly in the EntityCapsManager
-                            setServiceCapsNode(capsNode);
-                        }
-                    }
-                    else if (parser.getName().equals("session")) {
-                        // The server supports sessions
-                        serverSupportsSession();
-                    }
-                    else if (parser.getName().equals("ver")) {
-                        if (parser.getNamespace().equals("urn:xmpp:features:rosterver")) {
-                            setRosterVersioningSupported();
-                        }
-                    }
-                    else if (parser.getName().equals("compression")) {
-                        // The server supports stream compression
-                        setAvailableCompressionMethods(PacketParserUtils.parseCompressionMethods(parser));
-                    }
-                    else if (parser.getName().equals("register")) {
-                        serverSupportsAccountCreation();
-                    }
-                }
-                else if (eventType == XmlPullParser.END_TAG) {
-                    if (parser.getName().equals("starttls")) {
-                        // Confirm the server that we want to use TLS
-                        startTLSReceived(startTLSRequired);
-                    }
-                    else if (parser.getName().equals("required") && startTLSReceived) {
-                        startTLSRequired = true;
-                    }
-                    else if (parser.getName().equals("features")) {
-                        done = true;
-                    }
-                }
+        private void afterFeaturesReceived() throws IOException, SecurityRequiredException {
+            StartTls startTlsFeature = getFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
+            if (startTlsFeature != null) {
+                startTLSReceived(startTlsFeature);
             }
-
             // If TLS is required but the server doesn't offer it, disconnect
             // from the server and throw an error. First check if we've already negotiated TLS
             // and are secure, however (features get parsed a second time after TLS is established).
             if (!isSecureConnection()) {
-                if (!startTLSReceived
+                if (startTlsFeature == null
                                 && getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.required)
                 {
                     throw new SecurityRequiredException();
@@ -1189,7 +1109,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             // "MUST NOT include the STARTTLS feature" (RFC6120 5.4.3.3. 5.). We are therefore save to
             // release the connection lock once either TLS is disabled or we received a features stanza
             // without starttls.
-            if (!startTLSReceived
+            if (startTlsFeature == null
                             || getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled)
             {
                 lastFeaturesParsed = true;

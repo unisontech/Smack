@@ -122,41 +122,7 @@ public class BOSHPacketReader implements BOSHClientResponseListener {
         }
     }
 
-    /**
-     * Parse and setup the XML stream features.
-     * 
-     * @param parser the XML parser, positioned at the start of a message packet.
-     * @throws Exception if an exception occurs while parsing the packet.
-     */
     private void parseFeatures(XmlPullParser parser) throws Exception {
-        boolean done = false;
-        while (!done) {
-            int eventType = parser.next();
-
-            if (eventType == XmlPullParser.START_TAG) {
-                if (parser.getName().equals("mechanisms")) {
-                    // The server is reporting available SASL mechanisms. Store
-                    // this information
-                    // which will be used later while logging (i.e.
-                    // authenticating) into
-                    // the server
-                    connection.getSASLAuthentication().setAvailableSASLMethods(
-                            PacketParserUtils.parseMechanisms(parser));
-                } else if (parser.getName().equals("bind")) {
-                    // The server requires the client to bind a resource to the
-                    // stream
-                    connection.serverRequiresBinding();
-                } else if (parser.getName().equals("session")) {
-                    // The server supports sessions
-                    connection.serverSupportsSession();
-                } else if (parser.getName().equals("register")) {
-                    connection.serverSupportsAccountCreation();
-                }
-            } else if (eventType == XmlPullParser.END_TAG) {
-                if (parser.getName().equals("features")) {
-                    done = true;
-                }
-            }
-        }
+        connection.parseFeatures0(parser);
     }
 }

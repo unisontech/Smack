@@ -21,6 +21,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -30,6 +31,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,10 +46,20 @@ import org.jivesoftware.smack.debugger.SmackDebugger;
 import org.jivesoftware.smack.filter.IQReplyFilter;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Bind;
+import org.jivesoftware.smack.packet.CapsExtension;
+import org.jivesoftware.smack.packet.Compress;
 import org.jivesoftware.smack.packet.IQ;
+import org.jivesoftware.smack.packet.Mechanisms;
 import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.Presence;
+import org.jivesoftware.smack.packet.Registration;
+import org.jivesoftware.smack.packet.RosterVer;
 import org.jivesoftware.smack.packet.Session;
+import org.jivesoftware.smack.packet.StartTls;
+import org.jivesoftware.smack.provider.ProviderManager;
+import org.jivesoftware.smack.util.PacketParserUtils;
+import org.xmlpull.v1.XmlPullParser;
 
 public abstract class AbstractXMPPConnection implements XMPPConnection {
     private static final Logger LOGGER = Logger.getLogger(AbstractXMPPConnection.class.getName());
@@ -113,6 +126,10 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected final Map<PacketInterceptor, InterceptorWrapper> interceptors =
             new ConcurrentHashMap<PacketInterceptor, InterceptorWrapper>();
 
+    protected final Lock connectionLock = new ReentrantLock();
+
+    protected final Map<String, PacketExtension> streamFeatures = new HashMap<String, PacketExtension>();
+
     /**
      * 
      */
@@ -163,7 +180,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     /**
      * Stores whether the server supports rosterVersioning
      */
-    private boolean rosterVersioningSupported = false;
+//    private boolean rosterVersioningSupported = false;
 
     protected XMPPInputOutputStream compressionHandler;
 
@@ -217,7 +234,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     private AtomicBoolean bindingRequired = new AtomicBoolean(false);
 
-    private boolean sessionSupported;
+//    private boolean sessionSupported;
 
     /**
      * 
@@ -301,7 +318,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     public void connect() throws SmackException, IOException, XMPPException {
         saslAuthentication.init();
         bindingRequired.set(false);
-        sessionSupported = false;
         connectionException = null;
         connectInternal();
     }
@@ -402,15 +418,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
     }
 
-    /**
-     * Notification message saying that the server supports sessions. When a server supports
-     * sessions the client needs to send a Session packet after successfully binding a resource
-     * for the session.
-     */
-    protected void serverSupportsSession() {
-        sessionSupported = true;
-    }
-
     protected String bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
                     ResourceBindingNotOfferedException, NoResponseException, NotConnectedException {
 
@@ -437,7 +444,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         Bind response = (Bind) createPacketCollectorAndSend(bindResource).nextResultOrThrow();
         String userJID = response.getJid();
 
-        if (sessionSupported && !getConfiguration().isLegacySessionDisabled()) {
+        if (hasFeature(Session.ELEMENT, Session.NAMESPACE) && !getConfiguration().isLegacySessionDisabled()) {
             Session session = new Session();
             createPacketCollectorAndSend(session).nextResultOrThrow();
         }
@@ -477,13 +484,17 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected void setLoginInfo(String username, String password, String resource) {
         config.setLoginInfo(username, password, resource);
     }
-    
-    protected void serverSupportsAccountCreation() {
-        AccountManager.getInstance(this).setSupportsAccountCreation(true);
-    }
+
+//    protected void serverSupportsAccountCreation() {
+//        AccountManager.getInstance(this).setSupportsAccountCreation(true);
+//    }
 
     protected void maybeResolveDns() throws Exception {
         config.maybeResolveDns();
+    }
+
+    protected Lock getConnectionLock() {
+        return connectionLock;
     }
 
     @Override
@@ -846,17 +857,17 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
     }
 
-    /**
-     * Set the servers Entity Caps node
-     * 
-     * XMPPConnection holds this information in order to avoid a dependency to
-     * smack-extensions where EntityCapsManager lives from smack.
-     * 
-     * @param node
-     */
-    protected void setServiceCapsNode(String node) {
-        serviceCapsNode = node;
-    }
+//    /**
+//     * Set the servers Entity Caps node
+//     * 
+//     * XMPPConnection holds this information in order to avoid a dependency to
+//     * smack-extensions where EntityCapsManager lives from smack.
+//     * 
+//     * @param node
+//     */
+//    protected void setServiceCapsNode(String node) {
+//        serviceCapsNode = node;
+//    }
 
     @Override
     public String getServiceCapsNode() {
@@ -865,14 +876,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
     @Override
     public boolean isRosterVersioningSupported() {
-        return rosterVersioningSupported;
-    }
-
-    /**
-     * Indicates that the server supports roster versioning as defined in XEP-0237.
-     */
-    protected void setRosterVersioningSupported() {
-        rosterVersioningSupported = true;
+        return hasFeature(RosterVer.ELEMENT, RosterVer.NAMESPACE);
     }
 
     @Override
@@ -1098,5 +1102,78 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     @Override
     public boolean isRosterLoadedAtLogin() {
         return config.isRosterLoadedAtLogin();
+    }
+
+    protected void parseFeatures(XmlPullParser parser) throws Exception {
+        streamFeatures.clear();
+        int initialDepth = parser.getDepth();
+        while (true) {
+            int eventType = parser.next();
+
+            if (eventType == XmlPullParser.START_TAG) {
+                String name = parser.getName();
+                String namespace = parser.getNamespace();
+                switch (name) {
+                case StartTls.ELEMENT:
+                    break;
+                case Mechanisms.ELEMENT:
+                    PacketParserUtils.parseMechanisms(parser);
+                    break;
+                case Bind.ELEMENT:
+                    // The server requires the client to bind a resource to the stream
+                    serverRequiresBinding();
+                    break;
+                case CapsExtension.ELEMENT:
+                    // Set the entity caps node for the server if one is send
+                    // See http://xmpp.org/extensions/xep-0115.html#stream
+                    String node = parser.getAttributeValue(null, "node");
+                    String ver = parser.getAttributeValue(null, "ver");
+                    String hash = parser.getAttributeValue(null, "hash");
+                    CapsExtension capsExtension = new CapsExtension(node, ver, hash);
+                    addStreamFeature(capsExtension);
+                    break;
+                case Session.ELEMENT:
+                    addStreamFeature(Session.Feature.INSTANCE);
+                    break;
+                case RosterVer.ELEMENT:
+                    assert (namespace.equals(RosterVer.NAMESPACE));
+                    addStreamFeature(RosterVer.INSTANCE);
+                    break;
+                case Compress.ELEMENT:
+                    Compress compress = new Compress(PacketParserUtils.parseCompressionMethods(parser));
+                    addStreamFeature(compress);
+                    break;
+                case Registration.Feature.ELEMENT:
+                    addStreamFeature(Registration.Feature.INSTANCE);
+                    break;
+                }
+            }
+            else if (eventType == XmlPullParser.END_TAG) {
+//                if (parser.getName().equals("starttls")) {
+//                    // Confirm the server that we want to use TLS
+//                    startTLSReceived(startTLSRequired);
+//                }
+//                else if (parser.getName().equals("required") && startTLSReceived) {
+//                    startTLSRequired = true;
+//                }
+                if ((parser.getDepth() == initialDepth) && parser.getName().equals("features")) {
+                    break;
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public <F extends PacketExtension> F getFeature(String element, String namespace) {
+        return (F) streamFeatures.get(ProviderManager.getKey(element, namespace));
+    }
+
+    public boolean hasFeature(String element, String namespace) {
+        return getFeature(element, namespace) != null;
+    }
+
+    private void addStreamFeature(PacketExtension feature) {
+        String key = ProviderManager.getKey(feature.getElementName(), feature.getNamespace());
+        streamFeatures.put(key, feature);
     }
 }
