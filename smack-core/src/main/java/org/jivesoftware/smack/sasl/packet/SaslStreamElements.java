@@ -21,7 +21,7 @@ import org.jivesoftware.smack.sasl.SASLError;
 import org.jivesoftware.smack.util.StringUtils;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
-public class SaslStanzas {
+public class SaslStreamElements {
     public static final String NAMESPACE = "urn:ietf:params:xml:ns:xmpp-sasl";
 
     /**

@@ -45,7 +45,7 @@ import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.provider.IQProvider;
 import org.jivesoftware.smack.provider.PacketExtensionProvider;
 import org.jivesoftware.smack.provider.ProviderManager;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.SASLFailure;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;

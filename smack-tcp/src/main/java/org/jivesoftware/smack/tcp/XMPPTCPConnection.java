@@ -44,9 +44,10 @@ import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.StartTls;
 import org.jivesoftware.smack.parsing.ParsingExceptionCallback;
 import org.jivesoftware.smack.parsing.UnparsablePacket;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Challenge;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.SASLFailure;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Success;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Challenge;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
@@ -64,7 +65,6 @@ import org.jivesoftware.smack.util.TLSUtils;
 import org.jivesoftware.smack.util.dns.HostAddress;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import javax.net.ssl.HostnameVerifier;
@@ -1071,22 +1071,23 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             break;
                         case "failure":
                             String namespace = parser.getNamespace(null);
-                            if ("urn:ietf:params:xml:ns:xmpp-tls".equals(namespace)) {
+                            switch (namespace) {
+                            case "urn:ietf:params:xml:ns:xmpp-tls":
                                 // TLS negotiation has failed. The server will close the connection
                                 throw new Exception("TLS negotiation has failed");
-                            }
-                            else if ("http://jabber.org/protocol/compress".equals(namespace)) {
+                            case "http://jabber.org/protocol/compress":
                                 // Stream compression has been denied. This is a recoverable
                                 // situation. It is still possible to authenticate and
                                 // use the connection but using an uncompressed connection
-                                compressSyncPoint.reportFailure(null);
-                            }
-                            else {
+                                compressSyncPoint.reportFailure();
+                                break;
+                            case SaslStreamElements.NAMESPACE:
                                 // SASL authentication has failed. The server may close the connection
                                 // depending on the number of retries
                                 final SASLFailure failure = PacketParserUtils.parseSASLFailure(parser);
                                 processPacket(failure);
                                 getSASLAuthentication().authenticationFailed(failure);
+                                break;
                             }
                             break;
                         case "challenge":

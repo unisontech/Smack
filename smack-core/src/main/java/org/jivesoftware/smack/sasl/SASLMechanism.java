@@ -19,8 +19,8 @@ package org.jivesoftware.smack.sasl;
 import org.jivesoftware.smack.SmackException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.XMPPConnection;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.AuthMechanism;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Response;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.AuthMechanism;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Response;
 import org.jivesoftware.smack.util.StringUtils;
 
 import javax.security.auth.callback.CallbackHandler;

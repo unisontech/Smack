@@ -20,9 +20,9 @@ package org.jivesoftware.smack.bosh;
 import java.io.StringReader;
 
 import org.jivesoftware.smack.packet.Packet;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Challenge;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.SASLFailure;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Success;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Challenge;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.xmlpull.v1.XmlPullParserFactory;

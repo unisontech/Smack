@@ -23,8 +23,8 @@ import org.jivesoftware.smack.packet.Mechanisms;
 import org.jivesoftware.smack.sasl.SASLAnonymous;
 import org.jivesoftware.smack.sasl.SASLErrorException;
 import org.jivesoftware.smack.sasl.SASLMechanism;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.SASLFailure;
-import org.jivesoftware.smack.sasl.packet.SaslStanzas.Success;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
+import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 
 import javax.security.auth.callback.CallbackHandler;
 
