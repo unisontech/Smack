@@ -177,11 +177,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     private FromMode fromMode = FromMode.OMITTED;
 
-    /**
-     * Stores whether the server supports rosterVersioning
-     */
-//    private boolean rosterVersioningSupported = false;
-
     protected XMPPInputOutputStream compressionHandler;
 
     /**
@@ -463,14 +458,10 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected void setServiceName(String serviceName) {
         config.setServiceName(serviceName);
     }
-    
+
     protected void setLoginInfo(String username, String password, String resource) {
         config.setLoginInfo(username, password, resource);
     }
-
-//    protected void serverSupportsAccountCreation() {
-//        AccountManager.getInstance(this).setSupportsAccountCreation(true);
-//    }
 
     protected void maybeResolveDns() throws Exception {
         config.maybeResolveDns();
@@ -840,18 +831,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
     }
 
-//    /**
-//     * Set the servers Entity Caps node
-//     * 
-//     * XMPPConnection holds this information in order to avoid a dependency to
-//     * smack-extensions where EntityCapsManager lives from smack.
-//     * 
-//     * @param node
-//     */
-//    protected void setServiceCapsNode(String node) {
-//        serviceCapsNode = node;
-//    }
-
     @Override
     public String getServiceCapsNode() {
         return serviceCapsNode;
@@ -1135,13 +1114,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 }
             }
             else if (eventType == XmlPullParser.END_TAG) {
-//                if (parser.getName().equals("starttls")) {
-//                    // Confirm the server that we want to use TLS
-//                    startTLSReceived(startTLSRequired);
-//                }
-//                else if (parser.getName().equals("required") && startTLSReceived) {
-//                    startTLSRequired = true;
-//                }
                 if ((parser.getDepth() == initialDepth) && parser.getName().equals("features")) {
                     break;
                 }
