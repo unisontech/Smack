@@ -29,7 +29,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -227,15 +226,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected int port;
 
     /**
-     * Set to true if the server requires the connection to be binded in order to continue.
-     * <p>
-     * Note that we use AtomicBoolean here because it allows us to set the Boolean *object*, which
-     * we also use as synchronization object. A plain non-atomic Boolean object would be newly created
-     * for every change of the boolean value, which makes it useless as object for wait()/notify().
+     * Set to success if the server requires the connection to be binded in order to continue.
      */
-    private AtomicBoolean bindingRequired = new AtomicBoolean(false);
-
-//    private boolean sessionSupported;
+    private final SynchronizationPoint<XMPPErrorException> bindingRequired = new SynchronizationPoint<XMPPErrorException>(this);
 
     /**
      * 
@@ -320,7 +313,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     public void connect() throws SmackException, IOException, XMPPException {
         saslAuthentication.init();
-        bindingRequired.set(false);
+        bindingRequired.init();
         connectionException = null;
         connectInternal();
     }
@@ -415,30 +408,17 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      * resource to the stream.
      */
     protected void serverRequiresBinding() {
-        synchronized (bindingRequired) {
-            bindingRequired.set(true);
-            bindingRequired.notify();
-        }
+        bindingRequired.reportSuccess();
     }
 
     protected String bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
                     ResourceBindingNotOfferedException, NoResponseException, NotConnectedException {
 
-        synchronized (bindingRequired) {
-            if (!bindingRequired.get()) {
-                try {
-                    bindingRequired.wait(getPacketReplyTimeout());
-                }
-                catch (InterruptedException e) {
-                    // Ignore
-                }
-                if (!bindingRequired.get()) {
-                    // Server never offered resource binding, which is REQURIED in XMPP client and
-                    // server
-                    // implementations as per RFC6120 7.2
-                    throw new ResourceBindingNotOfferedException();
-                }
-            }
+        bindingRequired.waitForResponse();
+        if (!bindingRequired.wasSuccessfully()) {
+            // Server never offered resource binding, which is REQURIED in XMPP client and
+            // server implementations as per RFC6120 7.2
+            throw new ResourceBindingNotOfferedException();
         }
 
         Bind bindResource = new Bind();

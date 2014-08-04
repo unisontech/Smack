@@ -1343,6 +1343,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         void shutdown() {
             shutdownTimestamp = System.currentTimeMillis();
             queue.shutdown();
+            // Clear the queue so that in a succeeding reconnect no remaining old and stale packets
+            // will be send to the server. XEP-198 Stream Management has it's own data structure for
+            // unack'ed stanzas. See also SMACK-521
+            queue.clear();
             synchronized(shutdownDone) {
                 if (!shutdownDone.get()) {
                     try {

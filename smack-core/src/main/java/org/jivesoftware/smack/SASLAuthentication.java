@@ -128,7 +128,6 @@ public class SASLAuthentication {
     }
 
     private final AbstractXMPPConnection connection;
-//    private Collection<String> serverMechanisms = new ArrayList<String>();
     private SASLMechanism currentMechanism = null;
 
     /**
@@ -299,18 +298,6 @@ public class SASLAuthentication {
             }
         }
     }
-
-//    /**
-//     * Sets the available SASL mechanism reported by the server. The server will report the
-//     * available SASL mechanism once the TLS negotiation was successful. This information is
-//     * stored and will be used when doing the authentication for logging in the user.
-//     *
-//     * @param mechanisms collection of strings with the available SASL mechanism reported
-//     *                   by the server.
-//     */
-//    public void setAvailableSASLMethods(Collection<String> mechanisms) {
-//        this.serverMechanisms = mechanisms;
-//    }
 
     /**
      * Wrapper for {@link #challengeReceived(String, boolean)}, with <code>finalChallenge</code> set
