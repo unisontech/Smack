@@ -944,12 +944,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         private XmlPullParser parser;
 
         /**
-         * Set to true if the last features stanza from the server has been parsed. A XMPP connection
+         * Set to success if the last features stanza from the server has been parsed. A XMPP connection
          * handshake can invoke multiple features stanzas, e.g. when TLS is activated a second feature
          * stanza is send by the server. This is set to true once the last feature stanza has been
          * parsed.
          */
-        private volatile boolean lastFeaturesParsed;
+        private final SynchronizationPoint<SmackException> lastFeaturesParsed = new SynchronizationPoint<SmackException>(
+                        XMPPTCPConnection.this);
 
         private volatile boolean done;
 
@@ -965,7 +966,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          */
         void init() throws SmackException {
             done = false;
-            lastFeaturesParsed = false;
+            lastFeaturesParsed.init();
 
             readerThread = new Thread() {
                 public void run() {
@@ -989,17 +990,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         synchronized void startup() throws IOException, SmackException {
             readerThread.start();
 
-            try {
-                // Wait until either:
-                // - the servers last features stanza has been parsed
-                // - an exception is thrown while parsing
-                // - the timeout occurs
-                wait(getPacketReplyTimeout());
-            }
-            catch (InterruptedException ie) {
-                // Ignore.
-            }
-            if (!lastFeaturesParsed) {
+            // Wait until either:
+            // - the servers last features stanza has been parsed
+            // - an exception is thrown while parsing
+            // - the timeout occurs
+            lastFeaturesParsed.waitForResponse();
+
+            if (!lastFeaturesParsed.wasSuccessfully()) {
                 throwConnectionExceptionOrNoResponse();
             }
         }
@@ -1239,14 +1236,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             // release the connection lock once either TLS is disabled or we received a features stanza
             // without starttls.
             if (startTlsFeature == null
-                            || getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled)
-            {
-                lastFeaturesParsed = true;
-                // This synchronized block prevents this thread from calling notify() before the other
-                // thread had called wait() (it would cause an Exception if wait() hadn't been called)
-                synchronized (this) {
-                    notify();
-                }
+                            || getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled) {
+                lastFeaturesParsed.reportSuccess();
             }
         }
     }
