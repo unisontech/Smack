@@ -39,6 +39,7 @@ import org.jivesoftware.smack.packet.PacketExtension;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.Registration;
 import org.jivesoftware.smack.packet.RosterPacket;
+import org.jivesoftware.smack.packet.StartTls;
 import org.jivesoftware.smack.packet.StreamError;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.provider.IQProvider;
@@ -905,6 +906,33 @@ public class PacketParserUtils {
             }
         }
         return extension;
+    }
+
+    public static StartTls parseStartTlsFeature(XmlPullParser parser)
+                    throws XmlPullParserException, IOException {
+        assert (parser.getEventType() == XmlPullParser.START_TAG);
+        assert (parser.getNamespace().equals(StartTls.NAMESPACE));
+        int initalDepth = parser.getDepth();
+        boolean required = false;
+        outerloop: while (true) {
+            int event = parser.next();
+            switch (event) {
+            case XmlPullParser.START_TAG:
+                String name = parser.getName();
+                switch (name) {
+                case "required":
+                    required = true;
+                    break;
+                }
+                break;
+            case XmlPullParser.END_TAG:
+                if (parser.getDepth() == initalDepth) {
+                    break outerloop;
+                }
+            }
+        }
+        assert(parser.getEventType() == XmlPullParser.END_TAG);
+        return new StartTls(required);
     }
 
     private static String getLanguageAttribute(XmlPullParser parser) {

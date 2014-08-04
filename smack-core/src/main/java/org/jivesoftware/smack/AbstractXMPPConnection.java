@@ -1118,9 +1118,12 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 String namespace = parser.getNamespace();
                 switch (name) {
                 case StartTls.ELEMENT:
+                    StartTls startTls = PacketParserUtils.parseStartTlsFeature(parser);
+                    addStreamFeature(startTls);
                     break;
                 case Mechanisms.ELEMENT:
-                    PacketParserUtils.parseMechanisms(parser);
+                    Mechanisms mechanisms = new Mechanisms(PacketParserUtils.parseMechanisms(parser));
+                    addStreamFeature(mechanisms);
                     break;
                 case Bind.ELEMENT:
                     // The server requires the client to bind a resource to the stream

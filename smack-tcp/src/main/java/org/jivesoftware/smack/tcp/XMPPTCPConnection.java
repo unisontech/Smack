@@ -969,7 +969,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
             readerThread = new Thread() {
                 public void run() {
-                    parsePackets(this);
+                    parsePackets();
                 }
             };
             readerThread.setName("Smack Packet Reader (" + getConnectionCounter() + ")");
@@ -1034,7 +1034,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          *
          * @param thread the thread that is being used by the reader to parse incoming packets.
          */
-        private void parsePackets(Thread thread) {
+        private void parsePackets() {
             try {
                 int eventType = parser.getEventType();
                 do {
@@ -1200,7 +1200,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                     }
                     eventType = parser.next();
-                } while (!done && eventType != XmlPullParser.END_DOCUMENT && thread == readerThread);
+                } while (!done && eventType != XmlPullParser.END_DOCUMENT);
             }
             catch (Exception e) {
                 // The exception can be ignored if the the connection is 'done'
