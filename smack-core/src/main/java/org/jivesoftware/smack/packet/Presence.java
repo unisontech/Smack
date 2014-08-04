@@ -57,6 +57,8 @@ import org.jivesoftware.smack.util.XmlStringBuilder;
  */
 public class Presence extends Packet {
 
+    public static final String ELEMENT = "presence";
+
     private Type type = Type.available;
     private String status = null;
     private int priority = Integer.MIN_VALUE;
@@ -227,7 +229,7 @@ public class Presence extends Packet {
     @Override
     public XmlStringBuilder toXML() {
         XmlStringBuilder buf = new XmlStringBuilder();
-        buf.halfOpenElement("presence");
+        buf.halfOpenElement(ELEMENT);
         buf.xmlnsAttribute(getXmlns());
         buf.xmllangAttribute(getLanguage());
         addCommonAttributes(buf);
@@ -250,7 +252,7 @@ public class Presence extends Packet {
         if (error != null) {
             buf.append(error.toXML());
         }
-        buf.closeElement("presence");
+        buf.closeElement(ELEMENT);
 
         return buf;
     }

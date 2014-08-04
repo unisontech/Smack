@@ -47,6 +47,7 @@ import java.util.*;
  */
 public class Message extends Packet {
 
+    public static final String ELEMENT = "message";
     public static final String BODY = "body";
 
     private Type type = Type.normal;
@@ -409,7 +410,7 @@ public class Message extends Packet {
     @Override
     public XmlStringBuilder toXML() {
         XmlStringBuilder buf = new XmlStringBuilder();
-        buf.halfOpenElement("message");
+        buf.halfOpenElement(ELEMENT);
         buf.xmlnsAttribute(getXmlns());
         buf.xmllangAttribute(getLanguage());
         addCommonAttributes(buf);
@@ -456,7 +457,7 @@ public class Message extends Packet {
         }
         // Add packet extensions, if any are defined.
         buf.append(getExtensionsXML());
-        buf.closeElement("message");
+        buf.closeElement(ELEMENT);
         return buf;
     }
 

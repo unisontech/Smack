@@ -37,6 +37,8 @@ import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Compress;
+import org.jivesoftware.smack.packet.IQ;
+import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.StartTls;
@@ -62,6 +64,7 @@ import org.jivesoftware.smack.util.TLSUtils;
 import org.jivesoftware.smack.util.dns.HostAddress;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
+
 import org.xmlpull.v1.XmlPullParserFactory;
 
 import javax.net.ssl.HostnameVerifier;
@@ -154,20 +157,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     private String smSessionId;
 
-    private final SynchronizationPoint<XMPPException> smResumedSyncPoint = new SynchronizationPoint<XMPPException>(this);
+    private final SynchronizationPoint<XMPPException> smResumedSyncPoint = new SynchronizationPoint<XMPPException>(
+                    this);
 
-    private final SynchronizationPoint<XMPPException> smEnablededSyncPoint = new SynchronizationPoint<XMPPException>(this);
+    private final SynchronizationPoint<XMPPException> smEnablededSyncPoint = new SynchronizationPoint<XMPPException>(
+                    this);
 
     /**
      * Indicates whether Stream Management (XEP-198) is supported by the server, i.e. if it's
      * announced in the servers features.
      */
     private boolean smAvailable;
-
-//    /**
-//     * Set to true if Stream Management is active. Is also used a synchronization point.
-//     */
-//    private volatile boolean smEnabled;
 
     /**
      * The client's preferred maximum resumption time in seconds.
@@ -608,7 +608,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         catch (SmackException ex) {
             // An exception occurred in setting up the connection.
             shutdown();
-            // Everything stoppped. Now throw the exception.
+            // Everything stopped. Now throw the exception.
             throw ex;
         }
     }
@@ -776,15 +776,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             throw new CertificateException("Hostname verification of certificate failed. Certificate does not authenticate " + getServiceName());
         }
 
-        //if (((SSLSocket) socket).getWantClientAuth()) {
-        //    System.err.println("XMPPConnection wants client auth");
-        //}
-        //else if (((SSLSocket) socket).getNeedClientAuth()) {
-        //    System.err.println("XMPPConnection needs client auth");
-        //}
-        //else {
-        //    System.err.println("XMPPConnection does not require client auth");
-       // }
         // Set that TLS was successful
         usingTLS = true;
 
@@ -847,23 +838,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             return isUsingCompression();
         }
         return false;
-    }
-
-    /**
-     * Start using stream compression since the server has acknowledged stream compression.
-     *
-     * @throws IOException if there is an exception starting stream compression.
-     */
-    private void startStreamCompression() throws IOException {
-        // Initialize the reader and writer with the new secured version
-        initReaderAndWriter();
-
-        // Set the new  writer to use
-        packetWriter.setWriter(writer);
-        // Send a new opening stream to the server
-        packetWriter.openStream();
-        // Notify that compression is being used
-        compressSyncPoint.reportSuccess();
     }
 
     /**
@@ -1038,11 +1012,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     if (eventType == XmlPullParser.START_TAG) {
                         int parserDepth = parser.getDepth();
                         String name = parser.getName();
-                        ParsingExceptionCallback callback = getParsingExceptionCallback();
+                        switch (name) {
+                        case Message.ELEMENT:
+                        case IQ.ELEMENT:
+                        case Presence.ELEMENT:
                         Packet packet;
                         try {
                             packet = PacketParserUtils.parseStanza(parser, XMPPTCPConnection.this);
                         } catch (Exception e) {
+                            ParsingExceptionCallback callback = getParsingExceptionCallback();
                             CharSequence content = PacketParserUtils.parseContentDepth(parser, parserDepth);
                             UnparsablePacket message = new UnparsablePacket(content, e);
                             if (callback != null) {
@@ -1051,13 +1029,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             clientHandledStanzasCount++;
                             continue;
                         }
-                        if (packet != null) {
                             clientHandledStanzasCount++;
                             processPacket(packet);
-                        }
-                        // We found an opening stream. Record information about it, then notify
-                        // the connectionID lock so that the packet reader startup can finish.
-                        else if (name.equals("stream")) {
+                            break;
+                        case "stream":
+                            // We found an opening stream. Record information about it, then notify
+                            // the connectionID lock so that the packet reader startup can finish.
                             // Ensure the correct jabber:client namespace is being used.
                             if ("jabber:client".equals(parser.getNamespace(null))) {
                                 // Get the connection id.
@@ -1072,15 +1049,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                     }
                                 }
                             }
-                        }
-                        else if (name.equals("error")) {
+                            break;
+                        case "error":
                             throw new StreamErrorException(PacketParserUtils.parseStreamError(parser));
-                        }
-                        else if (name.equals("features")) {
+                        case "features":
                             parseFeatures(parser);
                             afterFeaturesReceived();
-                        }
-                        else if (name.equals("proceed")) {
+                            break;
+                        case "proceed":
                             try {
                                 // Secure the connection by negotiating TLS
                                 proceedTLSReceived();
@@ -1092,8 +1068,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 setConnectionException(e);
                                 throw e;
                             }
-                        }
-                        else if (name.equals("failure")) {
+                            break;
+                        case "failure":
                             String namespace = parser.getNamespace(null);
                             if ("urn:ietf:params:xml:ns:xmpp-tls".equals(namespace)) {
                                 // TLS negotiation has failed. The server will close the connection
@@ -1112,14 +1088,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 processPacket(failure);
                                 getSASLAuthentication().authenticationFailed(failure);
                             }
-                        }
-                        else if (name.equals("challenge")) {
+                            break;
+                        case "challenge":
                             // The server is challenging the SASL authentication made by the client
                             String challengeData = parser.nextText();
                             processPacket(new Challenge(challengeData));
                             getSASLAuthentication().challengeReceived(challengeData);
-                        }
-                        else if (name.equals("success")) {
+                            break;
+                        case "success":
                             Success success = new Success(parser.nextText());
                             processPacket(success);
                             // We now need to bind a resource for the connection
@@ -1131,16 +1107,23 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // The SASL authentication with the server was successful. The next step
                             // will be to bind the resource
                             getSASLAuthentication().authenticated(success);
-                        }
-                        else if (name.equals("compressed")) {
+                            break;
+                        case "compressed":
                             // Server confirmed that it's possible to use stream compression. Start
                             // stream compression
-                            startStreamCompression();
+                            // Initialize the reader and writer with the new compressed version
+                            initReaderAndWriter();
+                            // Set the new  writer to use
+                            packetWriter.setWriter(writer);
+                            // Send a new opening stream to the server
+                            packetWriter.openStream();
+                            // Notify that compression is being used
+                            compressSyncPoint.reportSuccess();
                             // Reset the state of the parser since a new stream element is going
                             // to be sent by the server
                             resetParser();
-                        }
-                        else if (Enabled.ELEMENT.equals(name)) {
+                            break;
+                        case Enabled.ELEMENT:
                             Enabled enabled = ParseStreamManagement.enabled(parser);
                             if (enabled.resumeSet()) {
                                 smSessionId = enabled.getId();
@@ -1151,15 +1134,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 smSessionId = null;
                             }
                             smEnablededSyncPoint.reportSuccess();
-                        }
-                        else if (Failed.ELEMENT.equals(name)) {
+                            break;
+                        case Failed.ELEMENT:
                             Failed failed = ParseStreamManagement.failed(parser);
                             XMPPError xmppError = failed.getXMPPError();
                             XMPPException xmppException = new XMPPErrorException("Stream Management failed", xmppError);
                             setConnectionException(xmppException);
                             smEnablededSyncPoint.reportFailure(xmppException);
-                        }
-                        else if (Resumed.ELEMENT.equals(name)) {
+                            break;
+                        case Resumed.ELEMENT:
                             Resumed resumed = ParseStreamManagement.resumed(parser);
                             if (!smSessionId.equals(resumed.getPrevId())) {
                                 throw new IllegalStateException("Session ID does not match previd of 'resumed' stanza");
@@ -1174,20 +1157,23 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             }
                             smResumedSyncPoint.reportSuccess();
                             smEnablededSyncPoint.reportSuccess();
-                        }
-                        else if (AckAnswer.ELEMENT.equals(name)) {
+                            break;
+                        case AckAnswer.ELEMENT:
                             assert(smEnablededSyncPoint.wasSuccessfully() && smAvailable);
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             processHandledCount(ackAnswer.getHandledCount());
-                        }
-                        else if (AckRequest.ELEMENT.equals(name)) {
+                            break;
+                        case AckRequest.ELEMENT:
                             // AckRequest stanzas are trival, no need to parse them
                             if (smEnablededSyncPoint.wasSuccessfully()) {
-                                AckAnswer ackAnswer = new AckAnswer(clientHandledStanzasCount);
-                                packetWriter.sendStreamElement(ackAnswer);
+                                packetWriter.sendStreamElement(new AckAnswer(clientHandledStanzasCount));
                             } else {
                                 LOGGER.warning("SM Ack Request received while SM is not enabled");
                             }
+                            break;
+                         default:
+                             LOGGER.warning("Unkown top level stream element: " + name);
+                             break;
                         }
                     }
                     else if (eventType == XmlPullParser.END_TAG) {

@@ -117,20 +117,17 @@ public class PacketParserUtils {
      * @throws Exception
      */
     public static Packet parseStanza(XmlPullParser parser, XMPPConnection connection) throws Exception {
-        final int eventType = parser.getEventType();
-        if (eventType != XmlPullParser.START_TAG) {
-            throw new IllegalArgumentException("Parser not at start tag");
-        }
+        assert(parser.getEventType() == XmlPullParser.START_TAG);
         final String name = parser.getName();
         switch (name) {
-        case "message":
+        case Message.ELEMENT:
             return parseMessage(parser);
-        case "iq":
+        case IQ.ELEMENT:
             return parseIQ(parser, connection);
-        case "presence":
+        case Presence.ELEMENT:
             return parsePresence(parser);
         default:
-            return null;
+            throw new IllegalArgumentException("Can only parse message, iq or presence, not " + name);
         }
     }
 
