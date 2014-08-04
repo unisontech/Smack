@@ -34,27 +34,32 @@ public class Bind extends IQ {
 
     public static final String ELEMENT = "bind";
     public static final String NAMESPACE = "urn:ietf:params:xml:ns:xmpp-bind";
-    private String resource = null;
-    private String jid = null;
 
-    public Bind() {
-        setType(IQ.Type.set);
+    private final String resource;
+    private final String jid;
+
+    public Bind(String resource, String jid) {
+        this.resource = resource;
+        this.jid = null;
     }
 
     public String getResource() {
         return resource;
     }
 
-    public void setResource(String resource) {
-        this.resource = resource;
-    }
-
     public String getJid() {
         return jid;
     }
 
-    public void setJid(String jid) {
-        this.jid = jid;
+
+    public static Bind newSet(String resource) {
+        Bind bind = new Bind(resource, null);
+        bind.setType(IQ.Type.set);
+        return bind;
+    }
+
+    public static Bind newResult(String jid) {
+        return new Bind(null, jid);
     }
 
     @Override
@@ -94,6 +99,5 @@ public class Bind extends IQ {
             xml.closeElement(this);
             return xml;
         }
-        
     }
 }
