@@ -18,7 +18,7 @@ package org.jivesoftware.smack.packet;
 
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
-public class RosterVer implements PacketExtension {
+public class RosterVer extends FullStreamElement {
 
     public static final String ELEMENT = "ver";
     public static final String NAMESPACE = "urn:xmpp:features:rosterver";

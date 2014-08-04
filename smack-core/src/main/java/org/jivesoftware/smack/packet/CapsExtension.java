@@ -18,7 +18,7 @@ package org.jivesoftware.smack.packet;
 
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
-public class CapsExtension implements PacketExtension {
+public class CapsExtension extends FullStreamElement {
     public static final String NAMESPACE = "http://jabber.org/protocol/caps";
     public static final String ELEMENT = "c";
 

@@ -23,6 +23,7 @@ import java.util.concurrent.locks.Lock;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.packet.StreamElement;
 
 public class SynchronizationPoint<E extends Exception> {
 
@@ -39,13 +40,21 @@ public class SynchronizationPoint<E extends Exception> {
         this.condition = connection.getConnectionLock().newCondition();
     }
 
-    public void sendRequestAndWaitForResponse(Packet request) throws E, NoResponseException,
-                    NotConnectedException {
+    public void init() {
         state = State.NoResponse;
+    }
+
+    public void sendRequestAndWaitForResponse(StreamElement request) throws E, NoResponseException,
+                    NotConnectedException {
+        assert(state == State.NoResponse);
         connectionLock.lock();
         try {
             if (request != null) {
-                connection.sendPacket(request);
+                if (request instanceof Packet) {
+                    connection.sendPacket((Packet) request);
+                } else {
+                    connection.sendStreamElement(request);
+                }
             }
             try {
                 condition.await(connection.getPacketReplyTimeout(), TimeUnit.MILLISECONDS);
@@ -61,7 +70,10 @@ public class SynchronizationPoint<E extends Exception> {
         case NoResponse:
             throw new NoResponseException();
         case Failure:
-            throw failureException;
+            if (failureException != null) {
+                throw failureException;
+            }
+            break;
         default:
             // Success, do nothing
         }
@@ -88,6 +100,10 @@ public class SynchronizationPoint<E extends Exception> {
         finally {
             connectionLock.unlock();
         }
+    }
+
+    public boolean wasSuccessfully() {
+        return state == State.Success;
     }
 
     private enum State {

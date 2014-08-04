@@ -46,7 +46,7 @@ public class Session extends IQ {
         return SESSION;
     }
 
-    public static class Feature implements PacketExtension {
+    public static class Feature extends FullStreamElement {
 
         public static final Session.Feature INSTANCE = new Feature();
 

@@ -50,7 +50,7 @@ public class PacketWriterTest {
         pw.startup();
 
         for (int i = 0; i < XMPPTCPConnection.PacketWriter.QUEUE_SIZE; i++) {
-            pw.sendPacket(new Message());
+            pw.sendStreamElement(new Message());
         }
         
         final CyclicBarrier barrier = new CyclicBarrier(2);
@@ -61,7 +61,7 @@ public class PacketWriterTest {
             public void run() {
                 try {
                     barrier.await();
-                    pw.sendPacket(new Message());
+                    pw.sendStreamElement(new Message());
                     // should only return after the pw was interrupted
                     if (!shutdown) {
                         prematureUnblocked = true;

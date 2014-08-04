@@ -32,6 +32,7 @@ import org.jivesoftware.smack.PacketCollector;
 import org.jivesoftware.smack.Roster;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.packet.Packet;
+import org.jivesoftware.smack.packet.StreamElement;
 
 /**
  * A dummy implementation of {@link XMPPConnection}, intended to be used during
@@ -59,7 +60,7 @@ public class DummyConnection extends AbstractXMPPConnection {
     private String connectionID;
     private Roster roster;
 
-    private final BlockingQueue<Packet> queue = new LinkedBlockingQueue<Packet>();
+    private final BlockingQueue<StreamElement> queue = new LinkedBlockingQueue<StreamElement>();
 
     public DummyConnection() {
 	this(new ConnectionConfiguration("example.com"));
@@ -185,6 +186,14 @@ public class DummyConnection extends AbstractXMPPConnection {
     }
 
     @Override
+    protected void sendStreamElement(StreamElement element) {
+        if (SmackConfiguration.DEBUG_ENABLED) {
+            System.out.println("[SEND]: " + element.toXML());
+        }
+        queue.add(element);
+    }
+
+    @Override
     protected void sendPacketInternal(Packet packet) {
         if (SmackConfiguration.DEBUG_ENABLED) {
             System.out.println("[SEND]: " + packet.toXML());
@@ -210,7 +219,7 @@ public class DummyConnection extends AbstractXMPPConnection {
      * @throws InterruptedException
      */
     public Packet getSentPacket() throws InterruptedException {
-	return queue.poll();
+        return (Packet) queue.poll();
     }
 
     /**
@@ -223,7 +232,7 @@ public class DummyConnection extends AbstractXMPPConnection {
      * @throws InterruptedException
      */
     public Packet getSentPacket(int wait) throws InterruptedException {
-	return queue.poll(wait, TimeUnit.SECONDS);
+        return (Packet) queue.poll(wait, TimeUnit.SECONDS);
     }
 
     /**

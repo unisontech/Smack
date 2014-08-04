@@ -57,6 +57,7 @@ import org.jivesoftware.smack.packet.Registration;
 import org.jivesoftware.smack.packet.RosterVer;
 import org.jivesoftware.smack.packet.Session;
 import org.jivesoftware.smack.packet.StartTls;
+import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.xmlpull.v1.XmlPullParser;
@@ -299,6 +300,8 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     public abstract boolean isSecureConnection();
 
     protected abstract void sendPacketInternal(Packet packet) throws NotConnectedException;
+
+    protected abstract void sendStreamElement(StreamElement element) throws NotConnectedException;
 
     @Override
     public abstract boolean isUsingCompression();

@@ -108,7 +108,7 @@ public class Registration extends IQ {
         return xml;
     }
 
-    public static class Feature implements PacketExtension {
+    public static class Feature extends FullStreamElement {
 
         public static final String ELEMENT = "register";
         public static final String NAMESPACE = "http://jabber.org/features/iq-register";

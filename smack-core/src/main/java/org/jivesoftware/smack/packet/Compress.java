@@ -23,7 +23,7 @@ import java.util.List;
 
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
-public class Compress implements PacketExtension {
+public class Compress extends FullStreamElement {
 
     public static final String ELEMENT = "compress";
     public static final String NAMESPACE = "http://jabber.org/protocol/compress";
