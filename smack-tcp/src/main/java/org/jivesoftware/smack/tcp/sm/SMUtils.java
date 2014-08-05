@@ -19,7 +19,7 @@ package org.jivesoftware.smack.tcp.sm;
 public class SMUtils {
 
     /**
-     * XEP-198 4.
+     * Quoting XEP-198 4.:
      * "In the unlikely case that the number of stanzas handled during a stream management session exceeds the number
      * of digits that can be represented by the unsignedInt datatype as specified in XML Schema Part 2 [10]
      * (i.e., 2^32), the value of 'h' SHALL be reset from 2^32-1 back to zero (rather than being incremented to 2^32)."

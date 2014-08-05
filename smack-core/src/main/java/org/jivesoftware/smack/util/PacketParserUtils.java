@@ -31,8 +31,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.jivesoftware.smack.XMPPConnection;
+import org.jivesoftware.smack.compress.packet.Compress;
 import org.jivesoftware.smack.packet.Bind;
-import org.jivesoftware.smack.packet.Compress;
 import org.jivesoftware.smack.packet.DefaultPacketExtension;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;

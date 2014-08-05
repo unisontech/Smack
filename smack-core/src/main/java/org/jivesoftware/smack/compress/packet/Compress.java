@@ -14,11 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jivesoftware.smack.packet;
+package org.jivesoftware.smack.compress.packet;
 
 import java.util.Collections;
 import java.util.List;
 
+import org.jivesoftware.smack.packet.FullStreamElement;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
 public class Compress extends FullStreamElement {

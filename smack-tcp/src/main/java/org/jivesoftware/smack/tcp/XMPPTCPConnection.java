@@ -35,9 +35,10 @@ import org.jivesoftware.smack.XMPPException.StreamErrorException;
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
+import org.jivesoftware.smack.compress.packet.Compressed;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
 import org.jivesoftware.smack.filter.PacketFilter;
-import org.jivesoftware.smack.packet.Compress;
+import org.jivesoftware.smack.compress.packet.Compress;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
@@ -51,6 +52,7 @@ import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
 import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
+import org.jivesoftware.smack.tcp.sm.SMUtils;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
@@ -981,26 +983,29 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 int eventType = parser.getEventType();
                 do {
                     if (eventType == XmlPullParser.START_TAG) {
-                        int parserDepth = parser.getDepth();
-                        String name = parser.getName();
+                        final String name = parser.getName();
                         switch (name) {
                         case Message.ELEMENT:
                         case IQ.ELEMENT:
                         case Presence.ELEMENT:
-                        Packet packet;
-                        try {
-                            packet = PacketParserUtils.parseStanza(parser, XMPPTCPConnection.this);
-                        } catch (Exception e) {
-                            ParsingExceptionCallback callback = getParsingExceptionCallback();
-                            CharSequence content = PacketParserUtils.parseContentDepth(parser, parserDepth);
-                            UnparsablePacket message = new UnparsablePacket(content, e);
-                            if (callback != null) {
-                                callback.handleUnparsablePacket(message);
+                            int parserDepth = parser.getDepth();
+                            Packet packet;
+                            try {
+                                packet = PacketParserUtils.parseStanza(parser,
+                                                XMPPTCPConnection.this);
                             }
-                            clientHandledStanzasCount++;
-                            continue;
-                        }
-                            clientHandledStanzasCount++;
+                            catch (Exception e) {
+                                ParsingExceptionCallback callback = getParsingExceptionCallback();
+                                CharSequence content = PacketParserUtils.parseContentDepth(parser,
+                                                parserDepth);
+                                UnparsablePacket message = new UnparsablePacket(content, e);
+                                if (callback != null) {
+                                    callback.handleUnparsablePacket(message);
+                                }
+                                clientHandledStanzasCount = SMUtils.incrementHeight(clientHandledStanzasCount);
+                                continue;
+                            }
+                            clientHandledStanzasCount = SMUtils.incrementHeight(clientHandledStanzasCount);
                             processPacket(packet);
                             break;
                         case "stream":
@@ -1046,13 +1051,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             switch (namespace) {
                             case "urn:ietf:params:xml:ns:xmpp-tls":
                                 // TLS negotiation has failed. The server will close the connection
-                                throw new Exception("TLS negotiation has failed");
+                                // TODO Parse failure stanza
+                                throw new XMPPErrorException("TLS negotiation has failed", null);
                             case "http://jabber.org/protocol/compress":
                                 // Stream compression has been denied. This is a recoverable
                                 // situation. It is still possible to authenticate and
                                 // use the connection but using an uncompressed connection
                                 // TODO Parse failure stanza
-                                compressSyncPoint.reportFailure(new XMPPErrorException("Could not establish compression", null));
+                                compressSyncPoint.reportFailure(new XMPPErrorException(
+                                                "Could not establish compression", null));
                                 break;
                             case SaslStreamElements.NAMESPACE:
                                 // SASL authentication has failed. The server may close the connection
@@ -1063,13 +1070,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 break;
                             }
                             break;
-                        case "challenge":
+                        case Challenge.ELEMENT:
                             // The server is challenging the SASL authentication made by the client
                             String challengeData = parser.nextText();
                             processPacket(new Challenge(challengeData));
                             getSASLAuthentication().challengeReceived(challengeData);
                             break;
-                        case "success":
+                        case Success.ELEMENT:
                             Success success = new Success(parser.nextText());
                             processPacket(success);
                             // We now need to bind a resource for the connection
@@ -1082,7 +1089,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // will be to bind the resource
                             getSASLAuthentication().authenticated(success);
                             break;
-                        case "compressed":
+                        case Compressed.ELEMENT:
                             // Server confirmed that it's possible to use stream compression. Start
                             // stream compression
                             // Initialize the reader and writer with the new compressed version
