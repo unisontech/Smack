@@ -335,16 +335,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             smResumedSyncPoint.sendRequestAndWaitForResponse(new Resume(clientHandledStanzasCount, smSessionId));
             if (smResumedSyncPoint.wasSuccessfully()) {
                 // We successfully resumed the stream, be done here
-                authenticated();
+                afterSuccessfulLogin(false, true);
                 return;
             }
         }
 
         bindResourceAndEstablishSession(resource);
-
-        // Indicate that we're now authenticated.
-        authenticated = true;
-        anonymous = false;
 
         if (smAvailable && shouldUseSmIfAvailable) {
             // Remove what is maybe left from previously stream managed sessions
@@ -358,24 +354,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             }
         }
 
-        // Set presence to online.
-        if (config.isSendPresence()) {
-            sendPacket(new Presence(Presence.Type.available));
-        }
-
         // Stores the authentication for future reconnection
         setLoginInfo(username, password, resource);
-    }
-
-    private void authenticated() {
-        // If debugging is enabled, change the the debug window title to include the
-        // name we are now logged-in as.
-        // If DEBUG_ENABLED was set to true AFTER the connection was created the debugger
-        // will be null
-        if (config.isDebuggerEnabled() && debugger != null) {
-            debugger.userHasLogged(user);
-        }
-        callConnectionAuthenticatedListener();
+        afterSuccessfulLogin(false, false);
     }
 
     @Override
@@ -394,19 +375,25 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             throw new SmackException("No anonymous SASL authentication mechanism available");
         }
 
-        bindResourceAndEstablishSession(null);
-
         // If compression is enabled then request the server to use stream compression
         if (config.isCompressionEnabled()) {
             useCompression();
         }
 
-        // Set presence to online.
-        sendPacket(new Presence(Presence.Type.available));
+        bindResourceAndEstablishSession(null);
 
+        afterSuccessfulLogin(true, false);
+    }
+
+    private void afterSuccessfulLogin(final boolean anonymous, final boolean resumed) throws NotConnectedException {
         // Indicate that we're now authenticated.
-        authenticated = true;
-        anonymous = true;
+        this.authenticated = true;
+        this.anonymous = anonymous;
+        
+        // Set presence to online.
+        if (config.isSendPresence() && !resumed) {
+            sendPacket(new Presence(Presence.Type.available));
+        }
 
         // If debugging is enabled, change the the debug window title to include the
         // name we are now logged-in as.
