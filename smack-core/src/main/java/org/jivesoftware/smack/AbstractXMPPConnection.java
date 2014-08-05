@@ -1094,7 +1094,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         return config.isRosterLoadedAtLogin();
     }
 
-    protected void parseFeatures(XmlPullParser parser) throws Exception {
+    protected final void parseFeatures(XmlPullParser parser) throws Exception {
         streamFeatures.clear();
         int initialDepth = parser.getDepth();
         while (true) {
@@ -1139,6 +1139,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 case Registration.Feature.ELEMENT:
                     addStreamFeature(Registration.Feature.INSTANCE);
                     break;
+                default:
+                    parseFeaturesSubclass(name, namespace, parser);
+                    break;
                 }
             }
             else if (eventType == XmlPullParser.END_TAG) {
@@ -1147,6 +1150,10 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 }
             }
         }
+    }
+
+    protected void parseFeaturesSubclass (String name, String namespace, XmlPullParser parser) {
+        // Default impl is to do nothing
     }
 
     @SuppressWarnings("unchecked")
@@ -1158,7 +1165,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         return getFeature(element, namespace) != null;
     }
 
-    private void addStreamFeature(PacketExtension feature) {
+    protected void addStreamFeature(PacketExtension feature) {
         String key = ProviderManager.getKey(feature.getElementName(), feature.getNamespace());
         streamFeatures.put(key, feature);
     }

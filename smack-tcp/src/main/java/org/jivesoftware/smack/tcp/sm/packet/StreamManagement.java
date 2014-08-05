@@ -27,6 +27,10 @@ public class StreamManagement {
     public static class StreamManagementFeature implements PacketExtension {
 
         public static final String ELEMENT = "sm";
+        public static final StreamManagementFeature INSTANCE = new StreamManagementFeature();
+
+        private StreamManagementFeature() {
+        }
 
         @Override
         public String getElementName() {
@@ -41,7 +45,7 @@ public class StreamManagement {
         @Override
         public CharSequence toXML() {
             XmlStringBuilder xml = new XmlStringBuilder(this);
-            xml.rightAngelBracket();
+            xml.closeEmptyElement();
             return xml;
         }
     }

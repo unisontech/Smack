@@ -878,6 +878,19 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
+    @Override
+    protected void parseFeaturesSubclass(String name, String namespace, XmlPullParser parser) {
+        switch(name) {
+        case StreamManagementFeature.ELEMENT:
+            if (namespace.equals(StreamManagement.NAMESPACE)) {
+                addStreamFeature(StreamManagementFeature.INSTANCE);
+            } else {
+                LOGGER.fine("Unsupported Stream Management version: " + namespace);
+            }
+            break;
+        }
+    }
+
     protected class PacketReader {
 
         private Thread readerThread;
