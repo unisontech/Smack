@@ -54,7 +54,6 @@ public abstract class XMPPException extends Exception {
         super(message);
     }
 
-
     /**
      * Creates a new XMPPException with a description of the exception and the
      * Throwable that was the root cause of the exception.

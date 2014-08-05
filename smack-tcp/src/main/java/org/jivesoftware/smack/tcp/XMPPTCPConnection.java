@@ -780,21 +780,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * before authentication took place.
      * </p>
      *
-     * @return true if stream compression negotiation was successful.
      * @throws NotConnectedException 
      * @throws XMPPException 
      * @throws NoResponseException 
      */
-    private boolean useCompression() throws NotConnectedException, NoResponseException, XMPPException {
+    private void useCompression() throws NotConnectedException, NoResponseException, XMPPException {
         // If stream compression was offered by the server and we want to use
         // compression then send compression request to the server
         assert(authenticated);
 
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
             compressSyncPoint.sendRequestAndWaitForResponse(new Compress(compressionHandler.getCompressionMethod()));
-            return isUsingCompression();
+        } else {
+            LOGGER.warning("Could not enabled compression because no matching handler/method pair was found");
         }
-        return false;
     }
 
     /**
@@ -1050,7 +1049,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 // Stream compression has been denied. This is a recoverable
                                 // situation. It is still possible to authenticate and
                                 // use the connection but using an uncompressed connection
-                                compressSyncPoint.reportFailure();
+                                // TODO Parse failure stanza
+                                compressSyncPoint.reportFailure(new XMPPErrorException("Could not establish compression", null));
                                 break;
                             case SaslStreamElements.NAMESPACE:
                                 // SASL authentication has failed. The server may close the connection

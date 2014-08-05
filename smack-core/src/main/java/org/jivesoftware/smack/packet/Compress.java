@@ -46,7 +46,7 @@ public class Compress extends FullStreamElement {
     public XmlStringBuilder toXML() {
         XmlStringBuilder xml = new XmlStringBuilder(this);
         xml.rightAngelBracket();
-        xml.escape(method);
+        xml.element("method", method);
         xml.closeElement(this);
         return xml;
     }
