@@ -1096,11 +1096,11 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
     protected final void parseFeatures(XmlPullParser parser) throws Exception {
         streamFeatures.clear();
-        int initialDepth = parser.getDepth();
+        final int initialDepth = parser.getDepth();
         while (true) {
             int eventType = parser.next();
 
-            if (eventType == XmlPullParser.START_TAG) {
+            if (eventType == XmlPullParser.START_TAG && parser.getDepth() == initialDepth) {
                 String name = parser.getName();
                 String namespace = parser.getNamespace();
                 switch (name) {
