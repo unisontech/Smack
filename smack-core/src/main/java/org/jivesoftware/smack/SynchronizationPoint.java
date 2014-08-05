@@ -60,12 +60,7 @@ public class SynchronizationPoint<E extends Exception> {
                     connection.sendStreamElement(request);
                 }
             }
-            try {
-                condition.await(connection.getPacketReplyTimeout(), TimeUnit.MILLISECONDS);
-            }
-            catch (InterruptedException e) {
-                // TODO
-            }
+            waitForConditionOrTimeout();
         }
         finally {
             connectionLock.unlock();
@@ -80,6 +75,19 @@ public class SynchronizationPoint<E extends Exception> {
             break;
         default:
             // Success, do nothing
+        }
+    }
+
+    public void checkIfSuccessOrWait() throws NoResponseException, E {
+        connectionLock.lock();
+        try {
+            if (state == State.Success) {
+                // Return immediately
+                return;
+            }
+            waitForConditionOrTimeout();
+        } finally {
+            connectionLock.unlock();
         }
     }
 
@@ -112,6 +120,15 @@ public class SynchronizationPoint<E extends Exception> {
 
     public boolean wasSuccessfully() {
         return state == State.Success;
+    }
+
+    private void waitForConditionOrTimeout() {
+        try {
+            condition.await(connection.getPacketReplyTimeout(), TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e) {
+            // TODO
+        }
     }
 
     private enum State {

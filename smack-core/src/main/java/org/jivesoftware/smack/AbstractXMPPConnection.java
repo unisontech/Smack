@@ -416,7 +416,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected void bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
                     ResourceBindingNotOfferedException, NoResponseException, NotConnectedException {
 
-        bindingRequired.waitForResponse();
+        bindingRequired.checkIfSuccessOrWait();
         if (!bindingRequired.wasSuccessfully()) {
             // Server never offered resource binding, which is REQURIED in XMPP client and
             // server implementations as per RFC6120 7.2
