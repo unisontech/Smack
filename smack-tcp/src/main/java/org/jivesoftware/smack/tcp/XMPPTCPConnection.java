@@ -340,19 +340,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             }
         }
 
-        // Set the user.
-        String response = bindResourceAndEstablishSession(resource);
-        if (response != null) {
-            this.user = response;
-            // Update the serviceName with the one returned by the server
-            setServiceName(response);
-        }
-        else {
-            this.user = username + "@" + getServiceName();
-            if (resource != null) {
-                this.user += "/" + resource;
-            }
-        }
+        bindResourceAndEstablishSession(resource);
 
         // Indicate that we're now authenticated.
         authenticated = true;
@@ -406,11 +394,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             throw new SmackException("No anonymous SASL authentication mechanism available");
         }
 
-        String response = bindResourceAndEstablishSession(null);
-        // Set the user value.
-        this.user = response;
-        // Update the serviceName with the one returned by the server
-        setServiceName(response);
+        bindResourceAndEstablishSession(null);
 
         // If compression is enabled then request the server to use stream compression
         if (config.isCompressionEnabled()) {

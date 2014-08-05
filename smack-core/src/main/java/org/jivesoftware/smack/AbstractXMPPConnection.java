@@ -60,6 +60,7 @@ import org.jivesoftware.smack.packet.StartTls;
 import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.util.PacketParserUtils;
+import org.jxmpp.util.XmppStringUtils;
 import org.xmlpull.v1.XmlPullParser;
 
 public abstract class AbstractXMPPConnection implements XMPPConnection {
@@ -130,6 +131,11 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected final Lock connectionLock = new ReentrantLock();
 
     protected final Map<String, PacketExtension> streamFeatures = new HashMap<String, PacketExtension>();
+
+    /**
+     * The full JID of the authenticated user.
+     */
+    protected String user;
 
     /**
      * 
@@ -407,7 +413,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         bindingRequired.reportSuccess();
     }
 
-    protected String bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
+    protected void bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
                     ResourceBindingNotOfferedException, NoResponseException, NotConnectedException {
 
         bindingRequired.waitForResponse();
@@ -429,7 +435,8 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
             throw e;
         }
         Bind response = packetCollector.nextResultOrThrow();
-        String userJID = response.getJid();
+        user = response.getJid();
+        setServiceName(XmppStringUtils.parseDomain(user));
 
         if (hasFeature(Session.ELEMENT, Session.NAMESPACE) && !getConfiguration().isLegacySessionDisabled()) {
             Session session = new Session();
@@ -442,7 +449,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
             }
             packetCollector.nextResultOrThrow();
         }
-        return userJID;
     }
 
     protected void setConnectionException(Exception e) {

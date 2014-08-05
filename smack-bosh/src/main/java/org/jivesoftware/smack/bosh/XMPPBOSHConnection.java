@@ -107,11 +107,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     protected String sessionID = null;
 
     /**
-     * The full JID of the authenticated user.
-     */
-    private String user = null;
-
-    /**
      * Create a HTTP Binding connection to a XMPP server.
      * 
      * @param https true if you want to use SSL
@@ -266,18 +261,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
             throw new SaslException("No non-anonymous SASL authentication mechanism available");
         }
 
-        String response = bindResourceAndEstablishSession(resource);
-        // Set the user.
-        if (response != null) {
-            this.user = response;
-            // Update the serviceName with the one returned by the server
-            setServiceName(response);
-        } else {
-            this.user = username + "@" + getServiceName();
-            if (resource != null) {
-                this.user += "/" + resource;
-            }
-        }
+        bindResourceAndEstablishSession(resource);
 
         // Set presence to online.
         if (config.isSendPresence()) {
@@ -316,11 +300,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
             throw new SaslException("No anonymous SASL authentication mechanism available");
         }
 
-        String response = bindResourceAndEstablishSession(null);
-        // Set the user value.
-        this.user = response;
-        // Update the serviceName with the one returned by the server
-        setServiceName(response);
+        bindResourceAndEstablishSession(null);
 
         // Set presence to online.
         if (config.isSendPresence()) {
