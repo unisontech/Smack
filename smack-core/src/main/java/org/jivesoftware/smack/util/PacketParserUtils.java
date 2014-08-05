@@ -692,9 +692,11 @@ public class PacketParserUtils {
      *
      * @param parser the XML parser, positioned at the start of the mechanisms stanza.
      * @return a collection of Stings with the mechanisms included in the mechanisms stanza.
-     * @throws Exception if an exception occurs while parsing the stanza.
+     * @throws IOException 
+     * @throws XmlPullParserException 
      */
-    public static Collection<String> parseMechanisms(XmlPullParser parser) throws Exception {
+    public static Collection<String> parseMechanisms(XmlPullParser parser)
+                    throws XmlPullParserException, IOException {
         List<String> mechanisms = new ArrayList<String>();
         boolean done = false;
         while (!done) {

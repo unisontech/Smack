@@ -247,6 +247,10 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         if (authenticated) {
             throw new AlreadyLoggedInException();
         }
+
+        // Wait with SASL auth until the SASL mechanisms have been received
+        saslFeatureReceived.checkIfSuccessOrWait();
+
         // Do partial version of nameprep on the username.
         username = username.toLowerCase(Locale.US).trim();
 
@@ -291,6 +295,9 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         if (authenticated) {
             throw new AlreadyLoggedInException();
         }
+
+        // Wait with SASL auth until the SASL mechanisms have been received
+        saslFeatureReceived.checkIfSuccessOrWait();
 
         if (saslAuthentication.hasAnonymousAuthentication()) {
             saslAuthentication.authenticateAnonymously();
@@ -506,11 +513,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     @Override
     protected SASLAuthentication getSASLAuthentication() {
         return super.getSASLAuthentication();
-    }
-
-    @Override
-    protected void serverRequiresBinding() {
-        super.serverRequiresBinding();
     }
 
     void parseFeatures0(XmlPullParser parser) throws Exception {

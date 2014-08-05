@@ -35,10 +35,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.jivesoftware.smack.SmackException.NoResponseException;
+import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.SmackException.ConnectionException;
 import org.jivesoftware.smack.SmackException.ResourceBindingNotOfferedException;
+import org.jivesoftware.smack.SmackException.SecurityRequiredException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.compression.XMPPInputOutputStream;
 import org.jivesoftware.smack.debugger.SmackDebugger;
@@ -62,6 +63,7 @@ import org.jivesoftware.smack.provider.ProviderManager;
 import org.jivesoftware.smack.util.PacketParserUtils;
 import org.jxmpp.util.XmppStringUtils;
 import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 public abstract class AbstractXMPPConnection implements XMPPConnection {
     private static final Logger LOGGER = Logger.getLogger(AbstractXMPPConnection.class.getName());
@@ -157,7 +159,21 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     protected Writer writer;
 
+    /**
+     * Set to success if the last features stanza from the server has been parsed. A XMPP connection
+     * handshake can invoke multiple features stanzas, e.g. when TLS is activated a second feature
+     * stanza is send by the server. This is set to true once the last feature stanza has been
+     * parsed.
+     */
+    protected final SynchronizationPoint<Exception> lastFeaturesReceived = new SynchronizationPoint<Exception>(
+                    AbstractXMPPConnection.this);
 
+    /**
+     * Set to success if the sasl feature has been received.
+     */
+    protected final SynchronizationPoint<Exception> saslFeatureReceived = new SynchronizationPoint<Exception>(
+                    AbstractXMPPConnection.this);
+ 
     /**
      * The SASLAuthentication manager that is responsible for authenticating with the server.
      */
@@ -226,16 +242,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      * The used port to establish the connection to
      */
     protected int port;
-
-    /**
-     * Set to success if the server requires the connection to be binded in order to continue.
-     */
-    private final SynchronizationPoint<XMPPErrorException> bindingRequired = new SynchronizationPoint<XMPPErrorException>(this);
-
-    /**
-     * 
-     */
-    private Exception connectionException;
 
     /**
      * Flag that indicates if the user is currently authenticated with the server.
@@ -315,21 +321,16 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     public void connect() throws SmackException, IOException, XMPPException {
         saslAuthentication.init();
-        bindingRequired.init();
-        connectionException = null;
+        saslFeatureReceived.init();
+        lastFeaturesReceived.init();
         connectInternal();
     }
 
     /**
      * Abstract method that concrete subclasses of XMPPConnection need to implement to perform their
-     * way of XMPP connection establishment. Implementations must guarantee that this method will
-     * block until the last features stanzas has been parsed and the features have been reported
-     * back to XMPPConnection (e.g. by calling @{link {@link AbstractXMPPConnection#serverRequiresBinding()}
-     * and such).
-     * <p>
-     * Also implementations are required to perform an automatic login if the previous connection
-     * state was logged (authenticated).
-     *
+     * way of XMPP connection establishment. Implementations are required to perform an automatic
+     * login if the previous connection state was logged (authenticated).
+     * 
      * @throws SmackException
      * @throws IOException
      * @throws XMPPException
@@ -405,19 +406,26 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     public abstract void loginAnonymously() throws XMPPException, SmackException, IOException;
 
-    /**
-     * Notification message saying that the server requires the client to bind a
-     * resource to the stream.
-     */
-    protected void serverRequiresBinding() {
-        bindingRequired.reportSuccess();
-    }
-
     protected void bindResourceAndEstablishSession(String resource) throws XMPPErrorException,
-                    ResourceBindingNotOfferedException, NoResponseException, NotConnectedException {
+                    IOException, SmackException {
 
-        bindingRequired.checkIfSuccessOrWait();
-        if (!bindingRequired.wasSuccessfully()) {
+        // Wait until either:
+        // - the servers last features stanza has been parsed
+        // - an exception is thrown while parsing
+        // - the timeout occurs
+        try {
+            lastFeaturesReceived.waitForResponse();
+        } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            } else if (e instanceof SmackException) {
+                throw (SmackException) e;
+            } else {
+                throw new SmackException(e);
+            }
+        }
+
+        if (!hasFeature(Bind.ELEMENT, Bind.NAMESPACE)) {
             // Server never offered resource binding, which is REQURIED in XMPP client and
             // server implementations as per RFC6120 7.2
             throw new ResourceBindingNotOfferedException();
@@ -448,24 +456,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 throw e;
             }
             packetCollector.nextResultOrThrow();
-        }
-    }
-
-    protected void setConnectionException(Exception e) {
-        connectionException = e;
-    }
-
-    protected void throwConnectionExceptionOrNoResponse() throws IOException, NoResponseException, SmackException {
-        if (connectionException != null) {
-            if (connectionException instanceof IOException) {
-                throw (IOException) connectionException;
-            } else if (connectionException instanceof SmackException) {
-                throw (SmackException) connectionException;
-            } else {
-                throw new SmackException(connectionException);
-            }
-        } else {
-            throw new NoResponseException();
         }
     }
 
@@ -1094,7 +1084,8 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         return config.isRosterLoadedAtLogin();
     }
 
-    protected final void parseFeatures(XmlPullParser parser) throws Exception {
+    protected final void parseFeatures(XmlPullParser parser) throws XmlPullParserException,
+                    IOException, SecurityRequiredException, NotConnectedException {
         streamFeatures.clear();
         final int initialDepth = parser.getDepth();
         while (true) {
@@ -1113,8 +1104,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                     addStreamFeature(mechanisms);
                     break;
                 case Bind.ELEMENT:
-                    // The server requires the client to bind a resource to the stream
-                    serverRequiresBinding();
+                    addStreamFeature(Bind.Feature.INSTANCE);
                     break;
                 case CapsExtension.ELEMENT:
                     // Set the entity caps node for the server if one is send
@@ -1149,10 +1139,30 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 break;
             }
         }
+
+        if (hasFeature(Mechanisms.ELEMENT, Mechanisms.NAMESPACE)) {
+            boolean starttls = hasFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
+            // Only proceed with SASL auth if TLS is disabled or if the server doesn't announce it
+            if ((starttls && getConfiguration().getSecurityMode() == SecurityMode.disabled)
+                            || !starttls) {
+                saslFeatureReceived.reportSuccess();
+            }
+        }
+
+        // If the server reported the bind feature then we are that that we did SASL and maybe
+        // STARTTLS. We can then report that the last 'stream:features' have been parsed
+        if (hasFeature(Bind.ELEMENT, Bind.NAMESPACE)) {
+            lastFeaturesReceived.reportSuccess();
+        }
+        afterFeaturesReceived();
     }
 
     protected void parseFeaturesSubclass (String name, String namespace, XmlPullParser parser) {
-        // Default impl is to do nothing
+        // Default implementation does nothing
+    }
+
+    protected void afterFeaturesReceived() throws SecurityRequiredException, NotConnectedException {
+        // Default implementation does nothing
     }
 
     @SuppressWarnings("unchecked")

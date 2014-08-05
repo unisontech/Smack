@@ -42,6 +42,7 @@ public class SynchronizationPoint<E extends Exception> {
 
     public void init() {
         state = State.NoResponse;
+        failureException = null;
     }
 
     public void waitForResponse() throws NoResponseException, NotConnectedException, E {
@@ -78,7 +79,7 @@ public class SynchronizationPoint<E extends Exception> {
         }
     }
 
-    public void checkIfSuccessOrWait() throws NoResponseException, E {
+    public void checkIfSuccessOrWait() throws NoResponseException {
         connectionLock.lock();
         try {
             if (state == State.Success) {
@@ -88,6 +89,9 @@ public class SynchronizationPoint<E extends Exception> {
             waitForConditionOrTimeout();
         } finally {
             connectionLock.unlock();
+        }
+        if (state == State.NoResponse) {
+            throw new NoResponseException();
         }
     }
 

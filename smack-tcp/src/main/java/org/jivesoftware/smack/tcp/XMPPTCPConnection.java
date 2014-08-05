@@ -18,6 +18,7 @@ package org.jivesoftware.smack.tcp;
 
 import org.jivesoftware.smack.AbstractXMPPConnection;
 import org.jivesoftware.smack.ConnectionConfiguration;
+import org.jivesoftware.smack.ConnectionConfiguration.SecurityMode;
 import org.jivesoftware.smack.ConnectionCreationListener;
 import org.jivesoftware.smack.ConnectionListener;
 import org.jivesoftware.smack.PacketListener;
@@ -304,6 +305,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (authenticated) {
             throw new AlreadyLoggedInException();
         }
+
+        // Wait with SASL auth until the SASL mechanisms have been received
+        saslFeatureReceived.checkIfSuccessOrWait();
+
         // Do partial version of nameprep on the username.
         username = username.toLowerCase(Locale.US).trim();
 
@@ -361,6 +366,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (authenticated) {
             throw new AlreadyLoggedInException();
         }
+
+        // Wait with SASL auth until the SASL mechanisms have been received
+        saslFeatureReceived.checkIfSuccessOrWait();
 
         if (saslAuthentication.hasAnonymousAuthentication()) {
             saslAuthentication.authenticateAnonymously();
@@ -623,33 +631,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         initDebugger();
     }
 
-    /***********************************************
-     * TLS code below
-     **********************************************/
-
-    /**
-     * Notification message saying that the server supports TLS so confirm the server that we
-     * want to secure the connection.
-     *
-     * @param startTlsFeature
-     * @throws IOException if an exception occurs.
-     * @throws NotConnectedException 
-     */
-    private void startTLSReceived(StartTls startTlsFeature) throws NotConnectedException {
-        if (startTlsFeature.required() && config.getSecurityMode() ==
-                ConnectionConfiguration.SecurityMode.disabled) {
-            notifyConnectionError(new IllegalStateException(
-                    "TLS required by server but not allowed by connection configuration"));
-            return;
-        }
-
-        if (config.getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled) {
-            // Do not secure the connection using TLS since TLS was disabled
-            return;
-        }
-        sendStreamElement(new StartTls());
-    }
-
     /**
      * The server has indicated that TLS negotiation can start. We now need to secure the
      * existing plain connection and perform a handshake. This method won't return until the
@@ -832,14 +813,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     protected void connectInternal() throws SmackException, IOException, XMPPException {
         // Establishes the connection, readers and writers
         connectUsingConfiguration(config);
-        // TODO is there a case where connectUsing.. does not throw an exception but connected is
-        // still false?
-        if (connected) {
-            callConnectionConnectedListener();
-        }
+        callConnectionConnectedListener();
+
         // Automatically makes the login if the user was previously connected successfully
         // to the server and the connection was terminated abruptly
-        if (connected && wasAuthenticated) {
+        if (wasAuthenticated) {
             // Make the login
             if (isAnonymous()) {
                 // Make the anonymous login
@@ -900,20 +878,36 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
+    @Override
+    protected void afterFeaturesReceived() throws SecurityRequiredException, NotConnectedException {
+        StartTls startTlsFeature = getFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
+        if (startTlsFeature != null) {
+            if (startTlsFeature.required() && config.getSecurityMode() == SecurityMode.disabled) {
+                notifyConnectionError(new IllegalStateException(
+                                "TLS required by server but not allowed by connection configuration"));
+                return;
+            }
+
+            if (config.getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled) {
+                // Do not secure the connection using TLS since TLS was disabled
+                return;
+            }
+            sendStreamElement(new StartTls());
+        }
+        // If TLS is required but the server doesn't offer it, disconnect
+        // from the server and throw an error. First check if we've already negotiated TLS
+        // and are secure, however (features get parsed a second time after TLS is established).
+        if (!isSecureConnection() && startTlsFeature == null
+                        && getConfiguration().getSecurityMode() == SecurityMode.required) {
+            throw new SecurityRequiredException();
+        }
+    }
+
     protected class PacketReader {
 
         private Thread readerThread;
 
         private XmlPullParser parser;
-
-        /**
-         * Set to success if the last features stanza from the server has been parsed. A XMPP connection
-         * handshake can invoke multiple features stanzas, e.g. when TLS is activated a second feature
-         * stanza is send by the server. This is set to true once the last feature stanza has been
-         * parsed.
-         */
-        private final SynchronizationPoint<SmackException> lastFeaturesParsed = new SynchronizationPoint<SmackException>(
-                        XMPPTCPConnection.this);
 
         private volatile boolean done;
 
@@ -929,7 +923,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          */
         void init() throws SmackException {
             done = false;
-            lastFeaturesParsed.init();
 
             readerThread = new Thread() {
                 public void run() {
@@ -952,16 +945,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          */
         synchronized void startup() throws IOException, SmackException {
             readerThread.start();
-
-            // Wait until either:
-            // - the servers last features stanza has been parsed
-            // - an exception is thrown while parsing
-            // - the timeout occurs
-            lastFeaturesParsed.waitForResponse();
-
-            if (!lastFeaturesParsed.wasSuccessfully()) {
-                throwConnectionExceptionOrNoResponse();
-            }
         }
 
         /**
@@ -1043,7 +1026,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             throw new StreamErrorException(PacketParserUtils.parseStreamError(parser));
                         case "features":
                             parseFeatures(parser);
-                            afterFeaturesReceived();
                             break;
                         case "proceed":
                             try {
@@ -1054,7 +1036,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 resetParser();
                             }
                             catch (Exception e) {
-                                setConnectionException(e);
+                                lastFeaturesReceived.reportFailure(e);
                                 throw e;
                             }
                             break;
@@ -1129,7 +1111,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Failed failed = ParseStreamManagement.failed(parser);
                             XMPPError xmppError = failed.getXMPPError();
                             XMPPException xmppException = new XMPPErrorException("Stream Management failed", xmppError);
-                            setConnectionException(xmppException);
+                            lastFeaturesReceived.reportFailure(xmppException);
                             smEnablededSyncPoint.reportFailure(xmppException);
                             break;
                         case Resumed.ELEMENT:
@@ -1186,34 +1168,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     // error.
                     notifyConnectionError(e);
                 }
-            }
-        }
-
-        private void afterFeaturesReceived() throws SecurityRequiredException, NotConnectedException {
-            StartTls startTlsFeature = getFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
-            if (startTlsFeature != null) {
-                startTLSReceived(startTlsFeature);
-            }
-            // If TLS is required but the server doesn't offer it, disconnect
-            // from the server and throw an error. First check if we've already negotiated TLS
-            // and are secure, however (features get parsed a second time after TLS is established).
-            if (!isSecureConnection()) {
-                if (startTlsFeature == null
-                                && getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.required)
-                {
-                    throw new SecurityRequiredException();
-                }
-            }
-
-            // Release the lock after TLS has been negotiated or we are not interested in TLS. If the
-            // server announced TLS and we choose to use it, by sending 'starttls', which the server
-            // replied with 'proceed', the server is required to send a new stream features element that
-            // "MUST NOT include the STARTTLS feature" (RFC6120 5.4.3.3. 5.). We are therefore save to
-            // release the connection lock once either TLS is disabled or we received a features stanza
-            // without starttls.
-            if (startTlsFeature == null
-                            || getConfiguration().getSecurityMode() == ConnectionConfiguration.SecurityMode.disabled) {
-                lastFeaturesParsed.reportSuccess();
             }
         }
     }

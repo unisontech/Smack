@@ -74,16 +74,11 @@ public class Bind extends IQ {
         return xml;
     }
 
-    public static class Feature implements Element {
+    public static class Feature extends FullStreamElement {
 
-        private final String resource;
-        
-        public Feature(String resource) {
-            this.resource = resource;
-        }
+        public static final Feature INSTANCE = new Feature();
 
-        public String getResource() {
-            return resource;
+        private Feature() {
         }
 
         @Override
@@ -92,12 +87,14 @@ public class Bind extends IQ {
         }
 
         @Override
-        public XmlStringBuilder toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder(this);
-            xml.xmlnsAttribute(NAMESPACE).rightAngelBracket();
-            xml.element("resource", resource);
-            xml.closeElement(this);
-            return xml;
+        public String getNamespace() {
+            return NAMESPACE;
         }
+
+        @Override
+        public String toXML() {
+            return '<' + ELEMENT + " xmlns='" + NAMESPACE + "'/>";
+        }
+
     }
 }
