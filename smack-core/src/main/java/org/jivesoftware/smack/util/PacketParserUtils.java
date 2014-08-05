@@ -487,8 +487,7 @@ public class PacketParserUtils {
                 else if (elementName.equals("query") && namespace.equals("jabber:iq:register")) {
                     iqPacket = parseRegistration(parser);
                 }
-                else if (elementName.equals(Bind.ELEMENT) &&
-                        namespace.equals(Bind.NAMESPACE)) {
+                else if (elementName.equals(Bind.ELEMENT) && namespace.equals(Bind.NAMESPACE)) {
                     iqPacket = parseResourceBinding(parser);
                 }
                 // Otherwise, see if there is a registered provider for
