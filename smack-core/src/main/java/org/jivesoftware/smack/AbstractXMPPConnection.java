@@ -171,7 +171,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     /**
      * Set to success if the sasl feature has been received.
      */
-    protected final SynchronizationPoint<Exception> saslFeatureReceived = new SynchronizationPoint<Exception>(
+    protected final SynchronizationPoint<SmackException> saslFeatureReceived = new SynchronizationPoint<SmackException>(
                     AbstractXMPPConnection.this);
  
     /**
@@ -411,19 +411,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
         // Wait until either:
         // - the servers last features stanza has been parsed
-        // - an exception is thrown while parsing
         // - the timeout occurs
-        try {
-            lastFeaturesReceived.checkIfSuccessOrWaitOrThrow();
-        } catch (Exception e) {
-            if (e instanceof IOException) {
-                throw (IOException) e;
-            } else if (e instanceof SmackException) {
-                throw (SmackException) e;
-            } else {
-                throw new SmackException(e);
-            }
-        }
+        lastFeaturesReceived.checkIfSuccessOrWait();
+
 
         if (!hasFeature(Bind.ELEMENT, Bind.NAMESPACE)) {
             // Server never offered resource binding, which is REQURIED in XMPP client and

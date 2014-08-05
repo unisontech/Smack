@@ -249,7 +249,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         }
 
         // Wait with SASL auth until the SASL mechanisms have been received
-        saslFeatureReceived.checkIfSuccessOrWait();
+        saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
 
         // Do partial version of nameprep on the username.
         username = username.toLowerCase(Locale.US).trim();
@@ -297,7 +297,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         }
 
         // Wait with SASL auth until the SASL mechanisms have been received
-        saslFeatureReceived.checkIfSuccessOrWait();
+        saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
 
         if (saslAuthentication.hasAnonymousAuthentication()) {
             saslAuthentication.authenticateAnonymously();

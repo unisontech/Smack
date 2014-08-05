@@ -307,7 +307,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         // Wait with SASL auth until the SASL mechanisms have been received
-        saslFeatureReceived.checkIfSuccessOrWait();
+        saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
 
         // Do partial version of nameprep on the username.
         username = username.toLowerCase(Locale.US).trim();
@@ -368,7 +368,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         // Wait with SASL auth until the SASL mechanisms have been received
-        saslFeatureReceived.checkIfSuccessOrWait();
+        saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
 
         if (saslAuthentication.hasAnonymousAuthentication()) {
             saslAuthentication.authenticateAnonymously();
@@ -1035,7 +1035,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 resetParser();
                             }
                             catch (Exception e) {
-                                lastFeaturesReceived.reportFailure(e);
+                                // We report any failure regarding TLS in the second stage of XMPP
+                                // connection establishment, namely the SASL authentication
+                                saslFeatureReceived.reportFailure(new SmackException(e));
                                 throw e;
                             }
                             break;
