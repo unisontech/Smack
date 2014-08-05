@@ -50,6 +50,7 @@ import org.jivesoftware.smack.sasl.packet.SaslStreamElements.SASLFailure;
 import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enable;
@@ -57,6 +58,7 @@ import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Enabled;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resume;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
+import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.StreamManagementFeature;
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
@@ -162,12 +164,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     private final SynchronizationPoint<XMPPException> smEnablededSyncPoint = new SynchronizationPoint<XMPPException>(
                     this);
-
-    /**
-     * Indicates whether Stream Management (XEP-198) is supported by the server, i.e. if it's
-     * announced in the servers features.
-     */
-    private boolean smAvailable;
 
     /**
      * The client's preferred maximum resumption time in seconds.
@@ -342,7 +338,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         bindResourceAndEstablishSession(resource);
 
-        if (smAvailable && shouldUseSmIfAvailable) {
+        if (isSmAvailable() && shouldUseSmIfAvailable) {
             // Remove what is maybe left from previously stream managed sessions
             unacknowledgedStanzas = new ArrayBlockingQueue<Packet>(QUEUE_SIZE);
             clientHandledStanzasCount = 0;
@@ -1131,7 +1127,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             smEnablededSyncPoint.reportSuccess();
                             break;
                         case AckAnswer.ELEMENT:
-                            assert(smEnablededSyncPoint.wasSuccessfully() && smAvailable);
+                            assert(smEnablededSyncPoint.wasSuccessfully() && isSmAvailable());
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             processHandledCount(ackAnswer.getHandledCount());
                             break;
@@ -1470,7 +1466,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean isSmAvailable() {
-        return smAvailable;
+        return hasFeature(StreamManagementFeature.ELEMENT, StreamManagement.NAMESPACE);
     }
 
     public boolean isSmEnabled() {
