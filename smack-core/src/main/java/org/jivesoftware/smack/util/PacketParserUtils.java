@@ -487,8 +487,8 @@ public class PacketParserUtils {
                 else if (elementName.equals("query") && namespace.equals("jabber:iq:register")) {
                     iqPacket = parseRegistration(parser);
                 }
-                else if (elementName.equals("bind") &&
-                        namespace.equals("urn:ietf:params:xml:ns:xmpp-bind")) {
+                else if (elementName.equals(Bind.ELEMENT) &&
+                        namespace.equals(Bind.NAMESPACE)) {
                     iqPacket = parseResourceBinding(parser);
                 }
                 // Otherwise, see if there is a registered provider for
@@ -650,25 +650,39 @@ public class PacketParserUtils {
         return registration;
     }
 
-    private static Bind parseResourceBinding(XmlPullParser parser) throws IOException,
-            XmlPullParserException {
+    public static Bind parseResourceBinding(XmlPullParser parser) throws IOException,
+                    XmlPullParserException {
+        assert (parser.getEventType() == XmlPullParser.START_TAG);
+        int initalDepth = parser.getDepth();
+        String name;
         Bind bind = null;
-        boolean done = false;
-        while (!done) {
+        outerloop: while (true) {
             int eventType = parser.next();
-            if (eventType == XmlPullParser.START_TAG) {
-                if (parser.getName().equals("resource")) {
+            switch (eventType) {
+            case XmlPullParser.START_TAG:
+                name = parser.getName();
+                switch (name) {
+                case "resource":
+                    // Bind elements must only contain either 'resource' or 'jid'
+                    assert(bind == null);
                     bind = Bind.newSet(parser.nextText());
-                }
-                else if (parser.getName().equals("jid")) {
+                    break;
+                case "jid":
+                    // Bind elements must only contain either 'resource' or 'jid'
+                    assert(bind == null);
                     bind = Bind.newResult(parser.nextText());
+                    break;
                 }
-            } else if (eventType == XmlPullParser.END_TAG) {
-                if (parser.getName().equals(Bind.ELEMENT)) {
-                    done = true;
+                break;
+            case XmlPullParser.END_TAG:
+                name = parser.getName();
+                if (name.equals(Bind.ELEMENT) && parser.getDepth() == initalDepth) {
+                    break outerloop;
                 }
+                break;
             }
         }
+        assert (parser.getEventType() == XmlPullParser.END_TAG);
         return bind;
     }
 
