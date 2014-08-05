@@ -130,7 +130,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private Socket socket;
 
     private String connectionID = null;
-    private String user = null;
     private boolean connected = false;
 
     // socketClosed is used concurrent
@@ -769,14 +768,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * 
      */
     private XMPPInputOutputStream maybeGetCompressionHandler() {
-        Compress compress = getFeature(Compress.ELEMENT, Compress.NAMESPACE);
-        if (compress == null) {
+        Compress.Feature compression = getFeature(Compress.Feature.ELEMENT, Compress.NAMESPACE);
+        if (compression == null) {
             // Server does not support compression
             return null;
         }
         for (XMPPInputOutputStream handler : SmackConfiguration.getCompresionHandlers()) {
                 String method = handler.getCompressionMethod();
-                if (compress.getMethods().contains(method))
+                if (compression.getMethods().contains(method))
                     return handler;
         }
         return null;

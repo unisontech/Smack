@@ -1100,7 +1100,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         while (true) {
             int eventType = parser.next();
 
-            if (eventType == XmlPullParser.START_TAG && parser.getDepth() == initialDepth) {
+            if (eventType == XmlPullParser.START_TAG && parser.getDepth() == initialDepth + 1) {
                 String name = parser.getName();
                 String namespace = parser.getNamespace();
                 switch (name) {
@@ -1132,9 +1132,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                     assert (namespace.equals(RosterVer.NAMESPACE));
                     addStreamFeature(RosterVer.INSTANCE);
                     break;
-                case Compress.ELEMENT:
-                    Compress compress = new Compress(PacketParserUtils.parseCompressionMethods(parser));
-                    addStreamFeature(compress);
+                case Compress.Feature.ELEMENT:
+                    Compress.Feature compression = PacketParserUtils.parseCompressionFeature(parser);
+                    addStreamFeature(compression);
                     break;
                 case Registration.Feature.ELEMENT:
                     addStreamFeature(Registration.Feature.INSTANCE);
@@ -1144,10 +1144,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                     break;
                 }
             }
-            else if (eventType == XmlPullParser.END_TAG) {
-                if ((parser.getDepth() == initialDepth) && parser.getName().equals("features")) {
-                    break;
-                }
+            else if (eventType == XmlPullParser.END_TAG && parser.getDepth() == initialDepth) {
+                assert(parser.getName().equals("features"));
+                break;
             }
         }
     }

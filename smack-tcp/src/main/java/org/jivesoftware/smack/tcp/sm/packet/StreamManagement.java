@@ -16,8 +16,8 @@
  */
 package org.jivesoftware.smack.tcp.sm.packet;
 
+import org.jivesoftware.smack.packet.FullStreamElement;
 import org.jivesoftware.smack.packet.PacketExtension;
-import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
@@ -50,7 +50,7 @@ public class StreamManagement {
         }
     }
 
-    public static abstract class AbstractEnable extends StreamElement {
+    public static abstract class AbstractEnable extends FullStreamElement {
 
         /**
          * Preferred maximum resumption time in seconds (optional).
@@ -86,8 +86,9 @@ public class StreamManagement {
         }
 
         @Override
-        public abstract CharSequence toXML();
-
+        public final String getNamespace() {
+            return NAMESPACE;
+        }
     }
 
     public static class Enable extends AbstractEnable {
@@ -107,13 +108,16 @@ public class StreamManagement {
 
         @Override
         public CharSequence toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder();
-            xml.halfOpenElement(ELEMENT);
-            xml.xmlnsAttribute(NAMESPACE);
+            XmlStringBuilder xml = new XmlStringBuilder(this);
             maybeAddResumeAttributeTo(xml);
             maybeAddMaxAttributeTo(xml);
             xml.closeEmptyElement();
             return xml;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
         }
     }
 
@@ -151,9 +155,7 @@ public class StreamManagement {
 
         @Override
         public CharSequence toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder();
-            xml.halfOpenElement(ELEMENT);
-            xml.xmlnsAttribute(NAMESPACE);
+            XmlStringBuilder xml = new XmlStringBuilder(this);
             xml.optAttribute("id", id);
             maybeAddResumeAttributeTo(xml);
             xml.optAttribute("location", location);
@@ -161,9 +163,14 @@ public class StreamManagement {
             xml.closeEmptyElement();
             return xml;
         }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
     }
 
-    public static class Failed extends StreamElement {
+    public static class Failed extends FullStreamElement {
         public static final String ELEMENT = "failed";
 
         private XMPPError error;
@@ -181,9 +188,7 @@ public class StreamManagement {
 
         @Override
         public CharSequence toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder();
-            xml.openElement(ELEMENT);
-            xml.xmlnsAttribute(NAMESPACE);
+            XmlStringBuilder xml = new XmlStringBuilder(this);
             if (error != null) {
                 xml.rightAngelBracket();
                 xml.append(error.toXML());
@@ -195,9 +200,19 @@ public class StreamManagement {
             return xml;
         }
 
+        @Override
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
+
     }
 
-    private static abstract class AbstractResume extends StreamElement {
+    private static abstract class AbstractResume extends FullStreamElement {
 
         private final long handledCount;
         private final String previd;
@@ -206,8 +221,6 @@ public class StreamManagement {
             this.handledCount = handledCount;
             this.previd = previd;
         }
-
-        abstract String getElement();
 
         public long getHandledCount() {
             return handledCount;
@@ -218,10 +231,13 @@ public class StreamManagement {
         }
 
         @Override
-        public final CharSequence toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder();
-            xml.openElement(getElement());
-            xml.xmlnsAttribute(NAMESPACE);
+        public final String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public final XmlStringBuilder toXML() {
+            XmlStringBuilder xml = new XmlStringBuilder(this);
             xml.attribute("h", Long.toString(handledCount));
             xml.attribute("previd", previd);
             xml.closeEmptyElement();
@@ -237,7 +253,7 @@ public class StreamManagement {
         }
 
         @Override
-        String getElement() {
+        public String getElementName() {
             return ELEMENT;
         }
     }
@@ -250,12 +266,12 @@ public class StreamManagement {
         }
 
         @Override
-        String getElement() {
+        public String getElementName() {
             return ELEMENT;
         }
     }
 
-    public static class AckAnswer extends StreamElement {
+    public static class AckAnswer extends FullStreamElement {
         public static final String ELEMENT = "a";
 
         private final long handledCount;
@@ -270,21 +286,39 @@ public class StreamManagement {
 
         @Override
         public CharSequence toXML() {
-            XmlStringBuilder xml = new XmlStringBuilder();
-            xml.openElement(ELEMENT);
-            xml.xmlnsAttribute(NAMESPACE);
+            XmlStringBuilder xml = new XmlStringBuilder(this);
             xml.attribute("h", Long.toString(handledCount));
             xml.closeEmptyElement();
             return xml;
         }
+
+        @Override
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
     }
 
-    public static class AckRequest extends StreamElement {
+    public static class AckRequest extends FullStreamElement {
         public static final String ELEMENT = "r";
 
         @Override
         public CharSequence toXML() {
             return '<' + ELEMENT + "xmlns='" + NAMESPACE + "'/>";
+        }
+
+        @Override
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
         }
     }
 }

@@ -16,9 +16,7 @@
  */
 package org.jivesoftware.smack.packet;
 
-import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.jivesoftware.smack.util.XmlStringBuilder;
@@ -28,18 +26,10 @@ public class Compress extends FullStreamElement {
     public static final String ELEMENT = "compress";
     public static final String NAMESPACE = "http://jabber.org/protocol/compress";
 
-    public final List<String> methods = new LinkedList<String>();
+    public final String method;
 
     public Compress(String method) {
-        methods.add(method);
-    }
-
-    public Compress(Collection<String> methods) {
-        this.methods.addAll(methods);
-    }
-
-    public List<String> getMethods() {
-        return Collections.unmodifiableList(methods);
+        this.method = method;
     }
 
     @Override
@@ -56,11 +46,43 @@ public class Compress extends FullStreamElement {
     public XmlStringBuilder toXML() {
         XmlStringBuilder xml = new XmlStringBuilder(this);
         xml.rightAngelBracket();
-        for (String method : methods) {
-            xml.element("method", method);
-        }
+        xml.escape(method);
         xml.closeElement(this);
         return xml;
     }
 
+    public static class Feature extends FullStreamElement {
+        public static final String ELEMENT = "compression";
+
+        public final List<String> methods;
+
+        public Feature(List<String> methods) {
+            this.methods = methods;
+        }
+
+        public List<String> getMethods() {
+            return Collections.unmodifiableList(methods);
+        }
+
+        @Override
+        public String getNamespace() {
+            return NAMESPACE;
+        }
+
+        @Override
+        public String getElementName() {
+            return ELEMENT;
+        }
+
+        @Override
+        public XmlStringBuilder toXML() {
+            XmlStringBuilder xml = new XmlStringBuilder(this);
+            xml.rightAngelBracket();
+            for (String method : methods) {
+                xml.element("method", method);
+            }
+            xml.closeElement(this);
+            return xml;
+        }
+    }
 }

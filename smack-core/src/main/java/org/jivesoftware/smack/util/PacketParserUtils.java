@@ -23,6 +23,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +32,7 @@ import java.util.logging.Logger;
 
 import org.jivesoftware.smack.XMPPConnection;
 import org.jivesoftware.smack.packet.Bind;
+import org.jivesoftware.smack.packet.Compress;
 import org.jivesoftware.smack.packet.DefaultPacketExtension;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
@@ -714,32 +716,42 @@ public class PacketParserUtils {
     }
 
     /**
-     * Parse the available compression methods reported from the server.
+     * Parse the Compression Feature reported from the server.
      *
      * @param parser the XML parser, positioned at the start of the compression stanza.
-     * @return a collection of Stings with the methods included in the compression stanza.
+     * @return The CompressionFeature stream element
      * @throws XmlPullParserException if an exception occurs while parsing the stanza.
      */
-    public static Collection<String> parseCompressionMethods(XmlPullParser parser)
-            throws IOException, XmlPullParserException {
-        List<String> methods = new ArrayList<String>();
-        boolean done = false;
-        while (!done) {
+    public static Compress.Feature parseCompressionFeature(XmlPullParser parser)
+                    throws IOException, XmlPullParserException {
+        assert (parser.getEventType() == XmlPullParser.START_TAG);
+        String name;
+        final int initialDepth = parser.getDepth();
+        List<String> methods = new LinkedList<String>();
+        outerloop: while (true) {
             int eventType = parser.next();
-
-            if (eventType == XmlPullParser.START_TAG) {
-                String elementName = parser.getName();
-                if (elementName.equals("method")) {
+            switch (eventType) {
+            case XmlPullParser.START_TAG:
+                name = parser.getName();
+                switch (name) {
+                case "method":
                     methods.add(parser.nextText());
+                    break;
                 }
-            }
-            else if (eventType == XmlPullParser.END_TAG) {
-                if (parser.getName().equals("compression")) {
-                    done = true;
+                break;
+            case XmlPullParser.END_TAG:
+                name = parser.getName();
+                switch (name) {
+                case Compress.Feature.ELEMENT:
+                    if (parser.getDepth() == initialDepth) {
+                        break outerloop;
+                    }
                 }
             }
         }
-        return methods;
+        assert (parser.getEventType() == XmlPullParser.END_TAG);
+        assert (parser.getDepth() == initialDepth);
+        return new Compress.Feature(methods);
     }
 
     /**
