@@ -109,7 +109,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -431,11 +430,22 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     @Override
     protected void shutdown() {
+        shutdown(false);
+    }
+
+    /**
+     * Performs an unclean disconnect and shutdown of the connection. Does not send a closing stream stanza.
+     */
+    public void instantShutdown() {
+        shutdown(true);
+    }
+
+    private void shutdown(boolean instant) {
         if (packetReader != null) {
                 packetReader.shutdown();
         }
         if (packetWriter != null) {
-                packetWriter.shutdown();
+                packetWriter.shutdown(instant);
         }
 
         // Set socketClosed to true. This will cause the PacketReader
@@ -1221,12 +1231,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         /**
          * Needs to be protected for unit testing purposes.
          */
-        protected AtomicBoolean shutdownDone = new AtomicBoolean(false);
+        protected SynchronizationPoint<NoResponseException> shutdownDone = new SynchronizationPoint<NoResponseException>(
+                        XMPPTCPConnection.this);
 
         /**
          * If set, the packet writer is shut down
          */
         protected volatile Long shutdownTimestamp = null;
+
+        private volatile boolean instantShutdown;
 
         /**
          * Creates a new packet writer with the specified connection.
@@ -1241,7 +1254,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         */ 
         void init() {
             writer = getWriter();
-            shutdownDone.set(false);
+            shutdownDone.init();
             shutdownTimestamp = null;
 
             queue.start();
@@ -1298,22 +1311,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * Shuts down the packet writer. Once this method has been called, no further
          * packets will be written to the server.
          */
-        void shutdown() {
+        void shutdown(boolean instant) {
+            instantShutdown = instant;
             shutdownTimestamp = System.currentTimeMillis();
             queue.shutdown();
-            // Clear the queue so that in a succeeding reconnect no remaining old and stale packets
-            // will be send to the server. XEP-198 Stream Management has it's own data structure for
-            // unack'ed stanzas. See also SMACK-521
-            queue.clear();
-            synchronized(shutdownDone) {
-                if (!shutdownDone.get()) {
-                    try {
-                        shutdownDone.wait(getPacketReplyTimeout());
-                    }
-                    catch (InterruptedException e) {
-                        LOGGER.log(Level.WARNING, "shutdown", e);
-                    }
-                }
+            try {
+                shutdownDone.checkIfSuccessOrWait();
+            }
+            catch (NoResponseException e) {
+                LOGGER.log(Level.WARNING, "NoResponseException", e);
             }
         }
 
@@ -1369,51 +1375,47 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         }
                     }
                 }
-                // Flush out the rest of the queue. If the queue is extremely large, it's possible
-                // we won't have time to entirely flush it before the socket is forced closed
-                // by the shutdown process.
-                try {
-                    while (!queue.isEmpty()) {
-                        StreamElement packet = queue.remove();
-                        writer.write(packet.toXML().toString());
+                if (!instantShutdown) {
+                    // Flush out the rest of the queue. If the queue is extremely large, it's possible we won't have time to entirely flush it before the socket is forced closed  by the shutdown process.
+                    try {
+                        while (!queue.isEmpty()) {
+                            StreamElement packet = queue.remove();
+                            writer.write(packet.toXML().toString());
+                        }
+                        writer.flush();
                     }
-                    writer.flush();
-                }
-                catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Exception flushing queue during shutdown, ignore and continue", e);
+                    catch (Exception e) {
+                        LOGGER.log(Level.WARNING,
+                                        "Exception flushing queue during shutdown, ignore and continue",
+                                        e);
+                    }
+
+                    // Close the stream.
+                    try {
+                        writer.write("</stream:stream>");
+                        writer.flush();
+                    }
+                    catch (Exception e) {
+                        LOGGER.log(Level.WARNING, "Exception writing closing stream element", e);
+                    }
                 }
 
                 // Delete the queue contents (hopefully nothing is left).
                 queue.clear();
-
-                // Close the stream.
                 try {
-                    writer.write("</stream:stream>");
-                    writer.flush();
+                    writer.close();
                 }
                 catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "Exception writing closing stream element", e);
-
-                }
-                finally {
-                    try {
-                        writer.close();
-                    }
-                    catch (Exception e) {
-                        // Do nothing
-                    }
+                    // Do nothing
                 }
 
-                shutdownDone.set(true);
-                synchronized(shutdownDone) {
-                    shutdownDone.notify();
-                }
+                shutdownDone.reportSuccess();
             }
             catch (IOException ioe) {
                 // The exception can be ignored if the the connection is 'done'
                 // or if the it was caused because the socket got closed
                 if (!(done() || isSocketClosed())) {
-                    shutdown();
+                    shutdown(true);
                     notifyConnectionError(ioe);
                 }
             }

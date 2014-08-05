@@ -85,9 +85,9 @@ public class PacketWriterTest {
         Thread.sleep(250);
 
         // Set to true for testing purposes, so that shutdown() won't wait packet writer
-        pw.shutdownDone.set(true);
+        pw.shutdownDone.reportSuccess();
         // Shutdown the packetwriter
-        pw.shutdown();
+        pw.shutdown(false);
         shutdown = true;
         barrier.await();
         if (prematureUnblocked) {
