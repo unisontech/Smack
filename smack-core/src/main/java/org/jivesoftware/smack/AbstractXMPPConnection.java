@@ -414,7 +414,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         // - an exception is thrown while parsing
         // - the timeout occurs
         try {
-            lastFeaturesReceived.waitForResponse();
+            lastFeaturesReceived.checkIfSuccessOrWaitOrThrow();
         } catch (Exception e) {
             if (e instanceof IOException) {
                 throw (IOException) e;

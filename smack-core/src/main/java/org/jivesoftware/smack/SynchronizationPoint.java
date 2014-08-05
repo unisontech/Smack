@@ -45,10 +45,6 @@ public class SynchronizationPoint<E extends Exception> {
         failureException = null;
     }
 
-    public void waitForResponse() throws NoResponseException, NotConnectedException, E {
-        sendRequestAndWaitForResponse(null);
-    }
-
     public void sendRequestAndWaitForResponse(StreamElement request) throws E, NoResponseException,
                     NotConnectedException {
         assert(state == State.NoResponse);
@@ -76,6 +72,13 @@ public class SynchronizationPoint<E extends Exception> {
             break;
         default:
             // Success, do nothing
+        }
+    }
+
+    public void checkIfSuccessOrWaitOrThrow() throws NoResponseException, E {
+        checkIfSuccessOrWait();
+        if (state == State.Failure) {
+            throw failureException;
         }
     }
 
