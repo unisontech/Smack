@@ -320,7 +320,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (!isConnected()) {
             throw new NotConnectedException();
         }
-        if (authenticated) {
+        if (authenticated && !disconnectedButResumeable) {
             throw new AlreadyLoggedInException();
         }
 
@@ -512,7 +512,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     @Override
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
         sendStreamElement(packet);
-        if (smEnablededSyncPoint.wasSuccessfully()) {
+        if (isSmEnabled() || isDisconnectedButSmResumptionPossible()) {
             for (PacketFilter requestAckPredicate : requestAckPredicates) {
                 if (requestAckPredicate.accept(packet)) {
                     packetWriter.sendStreamElement(new AckRequest());
@@ -1168,7 +1168,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             processHandledCount(resumed.getHandledCount());
                             // Then re-send what is left in the unacknowledged queue
                             List<Packet> stanzasToResend = new LinkedList<Packet>();
-                            unacknowledgedStanzas.addAll(stanzasToResend);
+                            stanzasToResend.addAll(unacknowledgedStanzas);
                             for (Packet stanza : stanzasToResend) {
                                 packetWriter.sendStreamElement(stanza);
                             }
@@ -1255,6 +1255,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             shutdownDone.init();
             shutdownTimestamp = null;
 
+            if (unacknowledgedStanzas != null) {
+                // It's possible that there are new stanzas in the writer queue that
+                // came in while we were disconnected but resumable, drain those into
+                // the unacknowledged queue so that they get resent now
+                drainWriterQueueToUnacknowledgedStanzas();
+            }
+
             queue.start();
             writerThread = new Thread() {
                 public void run() {
@@ -1276,11 +1283,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @throws NotConnectedException 
          */
         protected void sendStreamElement(StreamElement element) throws NotConnectedException {
-            if (done()) {
-                if (resumeableStreamAvailable()) {
-                    // Don't throw a NotConnectedException is there is an resumable stream available
-                    return;
-                }
+            if (done() && !resumeableStreamAvailable()) {
+                // Don't throw a NotConnectedException is there is an resumable stream available
                 throw new NotConnectedException();
             }
 
@@ -1353,7 +1357,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         // queue. Note that we can not do the put() in sendPacketInternal() and the
                         // packet order is not stable at this point (sendPacketInternal() can be
                         // called concurrently).
-                        if (smEnablededSyncPoint.wasSuccessfully() && packet instanceof Packet) {
+                        if (isSmEnabled() && packet instanceof Packet) {
                             // If the unacknowledgedStanza queue is full, request an new ack from
                             // the server in order to drain it
                             if (unacknowledgedStanzas.size() >= XMPPTCPConnection.QUEUE_SIZE) {
@@ -1374,7 +1378,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     }
                 }
                 if (!instantShutdown) {
-                    // Flush out the rest of the queue. If the queue is extremely large, it's possible we won't have time to entirely flush it before the socket is forced closed  by the shutdown process.
+                    // Flush out the rest of the queue. If the queue is extremely large, it's
+                    // possible we won't have time to entirely flush it before the socket is forced
+                    // closed by the shutdown process.
                     try {
                         while (!queue.isEmpty()) {
                             StreamElement packet = queue.remove();
@@ -1396,10 +1402,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     catch (Exception e) {
                         LOGGER.log(Level.WARNING, "Exception writing closing stream element", e);
                     }
+                    // Delete the queue contents (hopefully nothing is left).
+                    queue.clear();
+                } else if (instantShutdown && isSmEnabled()) {
+                    // This was an instantShutdown and SM is enabled, drain all remaining stanzas
+                    // into the unacknowledgedStanzas queue
+                    drainWriterQueueToUnacknowledgedStanzas();
                 }
 
-                // Delete the queue contents (hopefully nothing is left).
-                queue.clear();
                 try {
                     writer.close();
                 }
@@ -1416,6 +1426,21 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     shutdown(true);
                     notifyConnectionError(ioe);
                 }
+            }
+        }
+
+        private void drainWriterQueueToUnacknowledgedStanzas() {
+            List<StreamElement> elements = new ArrayList<StreamElement>(queue.size());
+            queue.drainTo(elements);
+            Iterator<StreamElement> it = elements.iterator();
+            while (it.hasNext()) {
+                StreamElement element = it.next();
+                if (!(element instanceof Packet)) {
+                    it.remove();
+                }
+            }
+            for (StreamElement element : elements) {
+                unacknowledgedStanzas.add((Packet) element);
             }
         }
 
