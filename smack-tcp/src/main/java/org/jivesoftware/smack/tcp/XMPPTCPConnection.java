@@ -1277,7 +1277,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          */
         protected void sendStreamElement(StreamElement element) throws NotConnectedException {
             if (done()) {
-                if (resumableStreamAvailable()) {
+                if (resumeableStreamAvailable()) {
                     // Don't throw a NotConnectedException is there is an resumable stream available
                     return;
                 }
@@ -1491,10 +1491,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean isDisconnectedButSmResumptionPossible() {
-        return disconnectedButResumeable && resumableStreamAvailable();
+        return disconnectedButResumeable && resumeableStreamAvailable();
     }
 
-    private boolean resumableStreamAvailable() {
+    private boolean resumeableStreamAvailable() {
         if (packetWriter == null)
             return false;
 
