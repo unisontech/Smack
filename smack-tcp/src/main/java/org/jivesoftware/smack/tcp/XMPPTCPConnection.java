@@ -1218,6 +1218,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 // It's possible that there are new stanzas in the writer queue that
                 // came in while we were disconnected but resumable, drain those into
                 // the unacknowledged queue so that they get resent now
+                // TODO not sure if this is really required: If we are disconnect but resumeable,
+                // then the packetWriter thread should not run, which means that stanzas added to
+                // the queue will be added to the unack'ed queue as soon as the new packetWriter
+                // thread is started.
                 drainWriterQueueToUnacknowledgedStanzas();
             }
 
@@ -1278,6 +1282,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @return the next element for writing.
          */
         private StreamElement nextStreamElement() {
+            // TODO not sure if nextStreamElement and/or this done() condition still required.
+            // Couldn't this be done in writePackets too?
             if (done()) {
                 return null;
             }
@@ -1300,7 +1306,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 while (!done()) {
                     StreamElement packet = nextStreamElement();
                     if (packet != null) {
-                        // TODO ensure that stanzas are not send if we are connected but not yet authenticated
+                        // TODO Must we ensure that stanzas are not send if we are connected but not
+                        // yet authenticated?
 
                         // Check if the stream element should be put to the unacknowledgedStanza
                         // queue. Note that we can not do the put() in sendPacketInternal() and the
