@@ -101,6 +101,7 @@ public class Java7ZlibInputOutputStream extends XMPPInputOutputStream {
     @Override
     public OutputStream getOutputStream(OutputStream outputStream) {
         return new DeflaterOutputStream(outputStream, new Deflater(compressionLevel)) {
+            @Override
             public void flush() throws IOException {
                 if (!supported) {
                     super.flush();

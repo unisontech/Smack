@@ -29,7 +29,6 @@ import org.jivesoftware.smack.SmackException.AlreadyLoggedInException;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
 import org.jivesoftware.smack.SmackException.ConnectionException;
-import org.jivesoftware.smack.SmackException.SecurityNotPossibleException;
 import org.jivesoftware.smack.SmackException.SecurityRequiredException;
 import org.jivesoftware.smack.SynchronizationPoint;
 import org.jivesoftware.smack.XMPPException.StreamErrorException;
@@ -83,7 +82,6 @@ import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.PasswordCallback;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -91,7 +89,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.net.Socket;
@@ -624,34 +621,23 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
-    private void initReaderAndWriter() throws IOException {
+    private void initReaderAndWriter() throws IOException, SmackException {
         try {
-            if (compressionHandler == null) {
-                reader =
-                        new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-                writer = new BufferedWriter(
-                        new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
+            InputStream is = socket.getInputStream();
+            OutputStream os = socket.getOutputStream();
+            if (compressionHandler != null) {
+                is = compressionHandler.getInputStream(is);
+                os =  compressionHandler.getOutputStream(os);
             }
-            else {
-                try {
-                    OutputStream os = compressionHandler.getOutputStream(socket.getOutputStream());
-                    writer = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
-
-                    InputStream is = compressionHandler.getInputStream(socket.getInputStream());
-                    reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-                }
-                catch (Exception e) {
-                    LOGGER.log(Level.WARNING, "initReaderAndWriter()", e);
-                    compressionHandler = null;
-                    reader = new BufferedReader(
-                            new InputStreamReader(socket.getInputStream(), "UTF-8"));
-                    writer = new BufferedWriter(
-                            new OutputStreamWriter(socket.getOutputStream(), "UTF-8"));
-                }
-            }
+            // OutputStreamWriter is already buffered, no need to wrap it into a BufferedWriter
+            writer = new OutputStreamWriter(os, "UTF-8");
+            reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
         }
-        catch (UnsupportedEncodingException ioe) {
-            throw new IllegalStateException(ioe);
+        catch (IOException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new SmackException(e);
         }
 
         // If debugging is enabled, we open a window and write out all network traffic.
@@ -669,11 +655,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * @throws KeyStoreException 
      * @throws UnrecoverableKeyException 
      * @throws KeyManagementException 
-     * @throws SecurityNotPossibleException 
-     *
+     * @throws SmackException 
      * @throws Exception if an exception occurs.
      */
-    private void proceedTLSReceived() throws NoSuchAlgorithmException, CertificateException, IOException, KeyStoreException, NoSuchProviderException, UnrecoverableKeyException, KeyManagementException, SecurityNotPossibleException {
+    private void proceedTLSReceived() throws NoSuchAlgorithmException, CertificateException, IOException, KeyStoreException, NoSuchProviderException, UnrecoverableKeyException, KeyManagementException, SmackException {
         SSLContext context = this.config.getCustomSSLContext();
         KeyStore ks = null;
         KeyManager[] kms = null;
