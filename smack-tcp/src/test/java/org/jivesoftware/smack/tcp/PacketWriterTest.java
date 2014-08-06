@@ -40,13 +40,14 @@ public class PacketWriterTest {
      * 
      * @throws InterruptedException
      * @throws BrokenBarrierException
+     * @throws NotConnectedException 
      */
     @SuppressWarnings("javadoc")
     @Test
     public void shouldBlockAndUnblockTest() throws InterruptedException, BrokenBarrierException, NotConnectedException {
         XMPPTCPConnection connection = new XMPPTCPConnection("foobar.com");
         final PacketWriter pw = connection.new PacketWriter();
-        pw.setWriter(new BlockingStringWriter());
+        connection.setWriter(new BlockingStringWriter());
         pw.startup();
 
         for (int i = 0; i < XMPPTCPConnection.PacketWriter.QUEUE_SIZE; i++) {

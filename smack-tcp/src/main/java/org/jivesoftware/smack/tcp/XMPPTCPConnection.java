@@ -41,6 +41,7 @@ import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.compress.packet.Compress;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
+import org.jivesoftware.smack.packet.OpenStream;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.StartTls;
@@ -70,7 +71,6 @@ import org.jivesoftware.smack.util.TLSUtils;
 import org.jivesoftware.smack.util.dns.HostAddress;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-import org.xmlpull.v1.XmlPullParserFactory;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManager;
@@ -149,6 +149,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     private PacketWriter packetWriter;
     private PacketReader packetReader;
+
+    private final SynchronizationPoint<Exception> initalOpenStreamSend = new SynchronizationPoint<Exception>(this);
 
     /**
      * 
@@ -499,6 +501,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         compressSyncPoint.init();
         smResumedSyncPoint.init();
         smEnablededSyncPoint.init();
+        initalOpenStreamSend.init();
     }
 
     @Override
@@ -591,10 +594,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     }
                 }
             }
-            else {
-                packetWriter.init();
-                packetReader.init();
-            }
+            packetWriter.init();
+            packetReader.init();
 
             // Start the packet writer. This will open a XMPP stream to the server
             packetWriter.startup();
@@ -747,11 +748,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         // Set that TLS was successful
         usingTLS = true;
-
-        // Set the new  writer to use
-        packetWriter.setWriter(writer);
-        // Send a new opening stream to the server
-        packetWriter.openStream();
     }
 
     /**
@@ -880,6 +876,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
+    /**
+     * For unit testing purposes
+     *
+     * @param writer
+     */
+    protected void setWriter(Writer writer) {
+        this.writer = writer;
+    }
+
     @Override
     protected void parseFeaturesSubclass(String name, String namespace, XmlPullParser parser) {
         switch(name) {
@@ -925,17 +930,30 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
+    /**
+     * Resets the parser using the latest connection's reader. Reseting the parser is necessary
+     * when the plain connection has been secured or when a new opening stream element is going
+     * to be sent by the server.
+     *
+     * @throws SmackException if the parser could not be reset.
+     */
+    void openStream() throws SmackException {
+        sendStreamElement(new OpenStream(getServiceName()));
+        try {
+            packetReader.parser = PacketParserUtils.newXmppParser(reader);
+        }
+        catch (XmlPullParserException e) {
+            throw new SmackException(e);
+        }
+    }
+
     protected class PacketReader {
 
         private Thread readerThread;
 
-        private XmlPullParser parser;
+        XmlPullParser parser;
 
         private volatile boolean done;
-
-        PacketReader() throws SmackException {
-            this.init();
-        }
 
         /**
          * Initializes the reader in order to be used. The reader is initialized during the
@@ -953,9 +971,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             };
             readerThread.setName("Smack Packet Reader (" + getConnectionCounter() + ")");
             readerThread.setDaemon(true);
-
-            resetParser();
-        }
+         }
 
         /**
          * Starts the packet reader thread and returns once a connection to the server
@@ -977,30 +993,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         /**
-         * Resets the parser using the latest connection's reader. Reseting the parser is necessary
-         * when the plain connection has been secured or when a new opening stream element is going
-         * to be sent by the server.
-         *
-         * @throws SmackException if the parser could not be reset.
-         */
-        private void resetParser() throws SmackException {
-            try {
-                parser = XmlPullParserFactory.newInstance().newPullParser();
-                parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
-                parser.setInput(getReader());
-            }
-            catch (XmlPullParserException e) {
-                throw new SmackException(e);
-            }
-        }
-
-        /**
          * Parse top-level packets in order to process them further.
          *
          * @param thread the thread that is being used by the reader to parse incoming packets.
          */
         private void parsePackets() {
             try {
+                initalOpenStreamSend.checkIfSuccessOrWait();
                 int eventType = parser.getEventType();
                 do {
                     if (eventType == XmlPullParser.START_TAG) {
@@ -1056,9 +1055,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             try {
                                 // Secure the connection by negotiating TLS
                                 proceedTLSReceived();
-                                // Reset the state of the parser since a new stream element is going
-                                // to be sent by the server
-                                resetParser();
+                                // Send a new opening stream to the server
+                                openStream();
                             }
                             catch (Exception e) {
                                 // We report any failure regarding TLS in the second stage of XMPP
@@ -1102,10 +1100,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             processPacket(success);
                             // We now need to bind a resource for the connection
                             // Open a new stream and wait for the response
-                            packetWriter.openStream();
-                            // Reset the state of the parser since a new stream element is going
-                            // to be sent by the server
-                            resetParser();
+                            openStream();
                             // The SASL authentication with the server was successful. The next step
                             // will be to bind the resource
                             getSASLAuthentication().authenticated(success);
@@ -1115,13 +1110,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // stream compression
                             // Initialize the reader and writer with the new compressed version
                             initReaderAndWriter();
-                            // Set the new  writer to use
-                            packetWriter.setWriter(writer);
                             // Send a new opening stream to the server
-                            packetWriter.openStream();
-                            // Reset the state of the parser since a new stream element is going
-                            // to be sent by the server
-                            resetParser();
+                            openStream();
                             // Notify that compression is being used
                             compressSyncPoint.reportSuccess();
                             break;
@@ -1209,7 +1199,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                         QUEUE_SIZE, true);
 
         private Thread writerThread;
-        private Writer writer;
 
         /**
          * Needs to be protected for unit testing purposes.
@@ -1224,19 +1213,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         private volatile boolean instantShutdown;
 
-        /**
-         * Creates a new packet writer with the specified connection.
-         */
-        PacketWriter() {
-            init();
-        }
-
         /** 
         * Initializes the writer in order to be used. It is called at the first connection and also 
         * is invoked if the connection is disconnected by an error.
         */ 
         void init() {
-            writer = getWriter();
             shutdownDone.init();
             shutdownTimestamp = null;
 
@@ -1290,10 +1271,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             writerThread.start();
         }
 
-        void setWriter(Writer writer) {
-            this.writer = writer;
-        }
-
         /**
          * Shuts down the packet writer. Once this method has been called, no further
          * packets will be written to the server.
@@ -1332,12 +1309,14 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         private void writePackets() {
             try {
-                // Open the stream.
                 openStream();
+                initalOpenStreamSend.reportSuccess();
                 // Write out packets from the queue.
                 while (!done()) {
                     StreamElement packet = nextStreamElement();
                     if (packet != null) {
+                        // TODO ensure that stanzas are not send if we are connected but not yet authenticated
+
                         // Check if the stream element should be put to the unacknowledgedStanza
                         // queue. Note that we can not do the put() in sendPacketInternal() and the
                         // packet order is not stable at this point (sendPacketInternal() can be
@@ -1404,12 +1383,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
                 shutdownDone.reportSuccess();
             }
-            catch (IOException ioe) {
+            catch (Exception e) {
                 // The exception can be ignored if the the connection is 'done'
                 // or if the it was caused because the socket got closed
                 if (!(done() || isSocketClosed())) {
                     shutdown(true);
-                    notifyConnectionError(ioe);
+                    notifyConnectionError(e);
                 }
             }
         }
@@ -1427,24 +1406,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             for (StreamElement element : elements) {
                 unacknowledgedStanzas.add((Packet) element);
             }
-        }
-
-        /**
-         * Sends to the server a new stream element. This operation may be requested several times
-         * so we need to encapsulate the logic in one place. This message will be sent while doing
-         * TLS, SASL and resource binding.
-         *
-         * @throws IOException If an error occurs while sending the stanza to the server.
-         */
-        void openStream() throws IOException {
-            StringBuilder stream = new StringBuilder();
-            stream.append("<stream:stream");
-            stream.append(" to=\"").append(getServiceName()).append("\"");
-            stream.append(" xmlns=\"jabber:client\"");
-            stream.append(" xmlns:stream=\"http://etherx.jabber.org/streams\"");
-            stream.append(" version=\"1.0\">");
-            writer.write(stream.toString());
-            writer.flush();
         }
     }
 

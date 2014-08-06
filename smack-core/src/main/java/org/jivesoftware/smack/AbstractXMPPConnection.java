@@ -449,14 +449,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
     }
 
-    protected Reader getReader() {
-        return reader;
-    }
-
-    protected Writer getWriter() {
-        return writer;
-    }
-
     protected void setServiceName(String serviceName) {
         config.setServiceName(serviceName);
     }

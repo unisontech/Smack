@@ -66,9 +66,7 @@ public class PacketParserUtils {
     }
 
     public static XmlPullParser getParserFor(Reader reader) throws XmlPullParserException, IOException {
-        XmlPullParser parser = newXmppParser();
-        parser.setInput(reader);
-
+        XmlPullParser parser = newXmppParser(reader);
         // Wind the parser forward to the first start tag
         int event = parser.getEventType();
         while (event != XmlPullParser.START_TAG) {
@@ -148,6 +146,25 @@ public class PacketParserUtils {
     public static XmlPullParser newXmppParser() throws XmlPullParserException {
         XmlPullParser parser = XmlPullParserFactory.newInstance().newPullParser();
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true);
+        return parser;
+    }
+
+    /**
+     * Creates a new XmlPullParser suitable for parsing XMPP. This means in particular that
+     * FEATURE_PROCESS_NAMESPACES is enabled.
+     * <p>
+     * Note that not all XmlPullParser implementations will return a String on
+     * <code>getText()</code> if the parser is on START_TAG or END_TAG. So you must not rely on this
+     * behavior when using the parser.
+     * </p>
+     * 
+     * @param reader
+     * @return A suitable XmlPullParser for XMPP parsing
+     * @throws XmlPullParserException
+     */
+    public static XmlPullParser newXmppParser(Reader reader) throws XmlPullParserException {
+        XmlPullParser parser = newXmppParser();
+        parser.setInput(reader);
         return parser;
     }
 
