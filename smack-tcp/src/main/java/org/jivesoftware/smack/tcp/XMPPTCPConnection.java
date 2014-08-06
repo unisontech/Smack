@@ -1134,11 +1134,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             packetWriter.setWriter(writer);
                             // Send a new opening stream to the server
                             packetWriter.openStream();
-                            // Notify that compression is being used
-                            compressSyncPoint.reportSuccess();
                             // Reset the state of the parser since a new stream element is going
                             // to be sent by the server
                             resetParser();
+                            // Notify that compression is being used
+                            compressSyncPoint.reportSuccess();
                             break;
                         case Enabled.ELEMENT:
                             Enabled enabled = ParseStreamManagement.enabled(parser);
