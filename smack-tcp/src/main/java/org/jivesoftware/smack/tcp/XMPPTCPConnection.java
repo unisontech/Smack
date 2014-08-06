@@ -54,6 +54,8 @@ import org.jivesoftware.smack.sasl.packet.SaslStreamElements.Success;
 import org.jivesoftware.smack.packet.StreamElement;
 import org.jivesoftware.smack.packet.XMPPError;
 import org.jivesoftware.smack.tcp.sm.SMUtils;
+import org.jivesoftware.smack.tcp.sm.StreamManagementException;
+import org.jivesoftware.smack.tcp.sm.StreamManagementException.StreamManagementNotEnabledException;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckAnswer;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.AckRequest;
@@ -115,7 +117,7 @@ import java.util.logging.Logger;
 
 /**
  * Creates a socket connection to a XMPP server. This is the default connection
- * to a Jabber server and is specified in the XMPP Core (RFC 3920).
+ * to a XMPP server and is specified in the XMPP Core (RFC 6120).
  * 
  * @see XMPPConnection
  * @author Matt Tucker
@@ -522,7 +524,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (isSmEnabled() || isDisconnectedButSmResumptionPossible()) {
             for (PacketFilter requestAckPredicate : requestAckPredicates) {
                 if (requestAckPredicate.accept(packet)) {
-                    packetWriter.sendStreamElement(new AckRequest());
+                    requestSmAcknowledgementInternal();
                     break;
                 }
             }
@@ -1308,7 +1310,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             // If the unacknowledgedStanza queue is full, request an new ack from
                             // the server in order to drain it
                             if (unacknowledgedStanzas.size() >= XMPPTCPConnection.QUEUE_SIZE) {
-                                writer.write(new AckRequest().toXML().toString());
+                                writer.write(AckRequest.INSTANCE.toXML().toString());
                                 writer.flush();
                             }
                             try {
@@ -1420,6 +1422,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         synchronized (requestAckPredicates) {
             return requestAckPredicates.remove(predicate);
         }
+    }
+
+    public void requestSmAcknowledgement() throws StreamManagementNotEnabledException, NotConnectedException {
+        if (!isSmEnabled()) {
+            throw new StreamManagementException.StreamManagementNotEnabledException();
+        }
+        requestSmAcknowledgementInternal();
+    }
+
+    private void requestSmAcknowledgementInternal() throws NotConnectedException {
+        packetWriter.sendStreamElement(AckRequest.INSTANCE);
     }
 
     public boolean addStanzaAcknowledgedListener(PacketListener listener) {

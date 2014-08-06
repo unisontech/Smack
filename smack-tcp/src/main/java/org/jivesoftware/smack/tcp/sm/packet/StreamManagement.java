@@ -305,6 +305,10 @@ public class StreamManagement {
 
     public static class AckRequest extends FullStreamElement {
         public static final String ELEMENT = "r";
+        public static final AckRequest INSTANCE = new AckRequest();
+
+        private AckRequest() {
+        }
 
         @Override
         public CharSequence toXML() {
