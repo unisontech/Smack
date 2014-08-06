@@ -133,7 +133,7 @@ public class SASLAuthentication {
     /**
      * Boolean indicating if SASL negotiation has finished and was successful.
      */
-    private boolean saslNegotiated;
+    private boolean authenticationSuccessful;
 
     /**
      * Either of type {@link SmackException} or {@link SASLErrorException}
@@ -196,7 +196,7 @@ public class SASLAuthentication {
 
             maybeThrowException();
 
-            if (!saslNegotiated) {
+            if (!authenticationSuccessful) {
                 throw new NoResponseException();
             }
         }
@@ -243,7 +243,7 @@ public class SASLAuthentication {
 
             maybeThrowException();
 
-            if (!saslNegotiated) {
+            if (!authenticationSuccessful) {
                 throw new NoResponseException();
             }
         }
@@ -282,7 +282,7 @@ public class SASLAuthentication {
 
         maybeThrowException();
 
-        if (!saslNegotiated) {
+        if (!authenticationSuccessful) {
             throw new NoResponseException();
         }
     }
@@ -343,7 +343,7 @@ public class SASLAuthentication {
         if (success.getData() != null) {
             challengeReceived(success.getData(), true);
         }
-        saslNegotiated = true;
+        authenticationSuccessful = true;
         // Wake up the thread that is waiting in the #authenticate method
         synchronized (this) {
             notify();
@@ -369,13 +369,17 @@ public class SASLAuthentication {
         }
     }
 
+    public boolean authenticationSuccessful() {
+        return authenticationSuccessful;
+    }
+
     /**
      * Initializes the internal state in order to be able to be reused. The authentication
      * is used by the connection at the first login and then reused after the connection
      * is disconnected and then reconnected.
      */
     protected void init() {
-        saslNegotiated = false;
+        authenticationSuccessful = false;
         saslException = null;
     }
 

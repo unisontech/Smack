@@ -147,7 +147,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private PacketWriter packetWriter;
     private PacketReader packetReader;
 
-    private final SynchronizationPoint<XMPPException> compressSyncPoint = new SynchronizationPoint<XMPPException>(this);
+    /**
+     * 
+     */
+    private final SynchronizationPoint<XMPPException> maybeCompressFeaturesReceived = new SynchronizationPoint<XMPPException>(
+                    this);
+
+    /**
+     * 
+     */
+    private final SynchronizationPoint<XMPPException> compressSyncPoint = new SynchronizationPoint<XMPPException>(
+                    this);
 
     private static boolean shouldUseSmAsDefault = true;
 
@@ -474,6 +484,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         usingTLS = false;
         reader = null;
         writer = null;
+        maybeCompressFeaturesReceived.init();
         compressSyncPoint.init();
         smResumedSyncPoint.init();
         smEnablededSyncPoint.init();
@@ -791,6 +802,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         // compression then send compression request to the server
         assert(authenticated);
 
+        maybeCompressFeaturesReceived.checkIfSuccessOrWait();
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
             compressSyncPoint.sendRequestAndWaitForResponse(new Compress(compressionHandler.getCompressionMethod()));
         } else {
@@ -901,6 +913,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if (!isSecureConnection() && startTlsFeature == null
                         && getConfiguration().getSecurityMode() == SecurityMode.required) {
             throw new SecurityRequiredException();
+        }
+
+        if (getSASLAuthentication().authenticationSuccessful()) {
+            // If we have received features after the SASL has been successfully completet, then we
+            // have also *maybe* received, as it is an optional feature, the compression feature
+            // from the server.
+            maybeCompressFeaturesReceived.reportSuccess();
         }
     }
 
