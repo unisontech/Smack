@@ -24,6 +24,7 @@ import org.jivesoftware.smack.ConnectionListener;
 import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.SmackConfiguration;
 import org.jivesoftware.smack.SmackException;
+import org.jivesoftware.smack.SmackException.AlreadyConnectedException;
 import org.jivesoftware.smack.SmackException.AlreadyLoggedInException;
 import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.SmackException.NotConnectedException;
@@ -134,6 +135,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     private String connectionID = null;
     private boolean connected = false;
+
+    /**
+     * 
+     */
+    private boolean disconnectedButResumeable = false;
 
     // socketClosed is used concurrent
     // by XMPPTCPConnection, PacketReader, PacketWriter
@@ -479,9 +485,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         setWasAuthenticated(authenticated);
-        authenticated = false;
-        connected = false;
-        usingTLS = false;
+        // If this was an instant shutdown *and* we are able to resume the stream, then don't set
+        // connected/authenticated/usingTLS to false since we like behave like we are still
+        // connected (e.g. sendPacket should not throw a NotConnectedException).
+        if (!instant && !isSmResumptionPossible()) {
+            authenticated = false;
+            connected = false;
+            usingTLS = false;
+            disconnectedButResumeable = false;
+        } else {
+            disconnectedButResumeable = true;
+        }
         reader = null;
         writer = null;
         maybeCompressFeaturesReceived.init();
@@ -824,6 +838,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      */
     @Override
     protected void connectInternal() throws SmackException, IOException, XMPPException {
+        if (connected && !disconnectedButResumeable) {
+            throw new AlreadyConnectedException();
+        }
         // Establishes the connection, readers and writers
         connectUsingConfiguration(config);
         callConnectionConnectedListener();
@@ -916,7 +933,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         if (getSASLAuthentication().authenticationSuccessful()) {
-            // If we have received features after the SASL has been successfully completet, then we
+            // If we have received features after the SASL has been successfully completed, then we
             // have also *maybe* received, as it is an optional feature, the compression feature
             // from the server.
             maybeCompressFeaturesReceived.reportSuccess();
@@ -1471,6 +1488,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     public boolean isSmResumptionPossible() {
         return smSessionId != null;
+    }
+
+    public boolean isDisconnectedButSmResumptionPossible() {
+        return disconnectedButResumeable && resumableStreamAvailable();
     }
 
     private boolean resumableStreamAvailable() {

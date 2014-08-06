@@ -479,7 +479,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
             throw new NotConnectedException();
         }
         if (packet == null) {
-            throw new NullPointerException("Packet is null.");
+            throw new IllegalArgumentException("Packet must not be null");
         }
         switch (fromMode) {
         case OMITTED:
