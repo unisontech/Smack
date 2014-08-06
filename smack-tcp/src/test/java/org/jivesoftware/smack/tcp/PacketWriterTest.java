@@ -47,13 +47,15 @@ public class PacketWriterTest {
     public void shouldBlockAndUnblockTest() throws InterruptedException, BrokenBarrierException, NotConnectedException {
         XMPPTCPConnection connection = new XMPPTCPConnection("foobar.com");
         final PacketWriter pw = connection.new PacketWriter();
+        connection.packetWriter = pw;
+        connection.packetReader = connection.new PacketReader();
         connection.setWriter(new BlockingStringWriter());
-        pw.startup();
+        pw.init();
 
         for (int i = 0; i < XMPPTCPConnection.PacketWriter.QUEUE_SIZE; i++) {
             pw.sendStreamElement(new Message());
         }
-        
+
         final CyclicBarrier barrier = new CyclicBarrier(2);
         shutdown = false;
         prematureUnblocked = false;

@@ -147,8 +147,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     private ParsingExceptionCallback parsingExceptionCallback = SmackConfiguration.getDefaultParsingExceptionCallback();
 
-    private PacketWriter packetWriter;
-    private PacketReader packetReader;
+    /**
+     * Protected access level because of unit test purposes
+     */
+    protected PacketWriter packetWriter;
+
+    /**
+     * Protected access level because of unit test purposes
+     */
+    protected PacketReader packetReader;
 
     private final SynchronizationPoint<Exception> initalOpenStreamSend = new SynchronizationPoint<Exception>(this);
 
@@ -594,14 +601,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                     }
                 }
             }
-            packetWriter.init();
-            packetReader.init();
-
             // Start the packet writer. This will open a XMPP stream to the server
-            packetWriter.startup();
+            packetWriter.init();
             // Start the packet reader. The startup() method will block until we
-            // get an opening stream packet back from server.
-            packetReader.startup();
+            // get an opening stream packet back from server
+            packetReader.init();
 
             // Make note of the fact that we're now connected.
             connected = true;
@@ -971,19 +975,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             };
             readerThread.setName("Smack Packet Reader (" + getConnectionCounter() + ")");
             readerThread.setDaemon(true);
-         }
-
-        /**
-         * Starts the packet reader thread and returns once a connection to the server
-         * has been established or if the server's features could not be parsed within
-         * the connection's PacketReplyTimeout.
-         *
-         * @throws IOException 
-         * @throws SmackException 
-         */
-        synchronized void startup() throws IOException, SmackException {
             readerThread.start();
-        }
+         }
 
         /**
          * Shuts the packet reader down. This method simply sets the 'done' flag to true.
@@ -1236,6 +1229,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             };
             writerThread.setName("Smack Packet Writer (" + getConnectionCounter() + ")");
             writerThread.setDaemon(true);
+            writerThread.start();
         }
 
         private boolean done() {
@@ -1260,15 +1254,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             catch (InterruptedException ie) {
                 throw new NotConnectedException();
             }
-        }
-
-        /**
-         * Starts the packet writer thread and opens a connection to the server. The
-         * packet writer will continue writing packets until {@link #shutdown} or an
-         * error occurs.
-         */
-        void startup() {
-            writerThread.start();
         }
 
         /**
@@ -1389,6 +1374,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 if (!(done() || isSocketClosed())) {
                     shutdown(true);
                     notifyConnectionError(e);
+                } else {
+                    LOGGER.log(Level.FINE, "Ignoring Exception in writePackets()", e);
                 }
             }
         }
