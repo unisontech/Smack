@@ -797,11 +797,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * @throws NoResponseException 
      */
     private void useCompression() throws NotConnectedException, NoResponseException, XMPPException {
+        maybeCompressFeaturesReceived.checkIfSuccessOrWait();
         // If stream compression was offered by the server and we want to use
         // compression then send compression request to the server
-        assert(authenticated);
-
-        maybeCompressFeaturesReceived.checkIfSuccessOrWait();
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
             compressSyncPoint.sendRequestAndWaitForResponse(new Compress(compressionHandler.getCompressionMethod()));
         } else {
