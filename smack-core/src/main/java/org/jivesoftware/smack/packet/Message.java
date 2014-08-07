@@ -59,6 +59,8 @@ public final class Message extends Stanza implements TypedCloneable<Message> {
     private Type type;
     private String thread = null;
 
+    private String chatHistoryId = null;
+
     private final Set<Subject> subjects = new HashSet<Subject>();
     private final Set<Body> bodies = new HashSet<Body>();
 
@@ -398,6 +400,15 @@ public final class Message extends Stanza implements TypedCloneable<Message> {
         this.thread = thread;
     }
 
+    public String getChatHistoryId() {
+        return chatHistoryId;
+    }
+
+    public void setChatHistoryId(String chatHistoryId) {
+        this.chatHistoryId = chatHistoryId;
+    }
+
+
     private String determineLanguage(String language) {
         
         // empty string is passed by #setSubject() and #setBody() and is the same as null
@@ -422,6 +433,7 @@ public final class Message extends Stanza implements TypedCloneable<Message> {
         buf.halfOpenElement(ELEMENT);
         addCommonAttributes(buf);
         buf.optAttribute("type", type);
+        buf.optAttribute("chat_history_id", chatHistoryId);
         buf.rightAngleBracket();
 
         // Add the subject in the default language

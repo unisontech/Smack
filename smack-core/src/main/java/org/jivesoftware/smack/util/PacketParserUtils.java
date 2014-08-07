@@ -224,6 +224,7 @@ public class PacketParserUtils {
         message.setStanzaId(parser.getAttributeValue("", "id"));
         message.setTo(parser.getAttributeValue("", "to"));
         message.setFrom(parser.getAttributeValue("", "from"));
+        message.setChatHistoryId(parser.getAttributeValue("", "chat_history_id"));
         String typeString = parser.getAttributeValue("", "type");
         if (typeString != null) {
             message.setType(Message.Type.fromString(typeString));
