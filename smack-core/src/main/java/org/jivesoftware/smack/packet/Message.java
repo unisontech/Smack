@@ -58,6 +58,8 @@ public final class Message extends Packet {
     private Type type = Type.normal;
     private String thread = null;
 
+    private String chatHistoryId = null;
+
     private final Set<Subject> subjects = new HashSet<Subject>();
     private final Set<Body> bodies = new HashSet<Body>();
 
@@ -381,6 +383,15 @@ public final class Message extends Packet {
         this.thread = thread;
     }
 
+    public String getChatHistoryId() {
+        return chatHistoryId;
+    }
+
+    public void setChatHistoryId(String chatHistoryId) {
+        this.chatHistoryId = chatHistoryId;
+    }
+
+
     private String determineLanguage(String language) {
         
         // empty string is passed by #setSubject() and #setBody() and is the same as null
@@ -406,6 +417,9 @@ public final class Message extends Packet {
         addCommonAttributes(buf);
         if (type != Type.normal) {
             buf.attribute("type", type);
+        }
+        if (chatHistoryId != null) {
+            buf.attribute("chat_history_id", chatHistoryId);
         }
         buf.rightAngleBracket();
 
