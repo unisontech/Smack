@@ -11,6 +11,10 @@ buildscript {
 }
 apply plugin: 'org.kordamp.gradle.markdown'
 
+ext {
+    absoluteProjectDir = project.buildFile.parentFile.absolutePath
+}
+
 allprojects {
 	apply plugin: 'java'
 	apply plugin: 'eclipse'
@@ -26,8 +30,8 @@ allprojects {
 		sonatypeCredentialsAvailable = project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword')
 		isReleaseVersion = !isSnapshot
 		signingRequired = isReleaseVersion
-		sonatypeSnapshotUrl = 'https://oss.sonatype.org/content/repositories/snapshots'
-		sonatypeStagingUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2'
+		sonatypeSnapshotUrl = "file://${project.rootProject.absoluteProjectDir}/repo"
+		sonatypeStagingUrl = "file://${project.rootProject.absoluteProjectDir}/repo"
 		// Returns only the date in yyyy-MM-dd format, as otherwise, with
 		// hh:mm:ss information, the manifest files would change with every
 		// build, causing unnecessary rebuilds.
@@ -35,7 +39,7 @@ allprojects {
 		oneLineDesc = 'An Open Source XMPP (Jabber) client library'
 		jxmppVersion = "0.3.0-alpha1-SNAPSHOT"
 	}
-	group = 'org.igniterealtime.smack'
+	group = 'com.unison.smack'
 	sourceCompatibility = 1.7
 	targetCompatibility = sourceCompatibility
 	version = shortVersion
