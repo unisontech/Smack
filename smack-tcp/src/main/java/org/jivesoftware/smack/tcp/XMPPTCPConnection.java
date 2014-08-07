@@ -363,6 +363,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 afterSuccessfulLogin(false, true);
                 return;
             }
+            // SM resumption failed, what Smack does here is to report success of
+            // lastFeaturesReceived in case of sm resumption was answered with 'failed' so that
+            // normal resource binding can be tried.
         }
 
         bindResourceAndEstablishSession(resource);
@@ -1125,8 +1128,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             Failed failed = ParseStreamManagement.failed(parser);
                             XMPPError xmppError = failed.getXMPPError();
                             XMPPException xmppException = new XMPPErrorException("Stream Management failed", xmppError);
-                            lastFeaturesReceived.reportFailure(xmppException);
                             smEnablededSyncPoint.reportFailure(xmppException);
+                            // Report success for last lastFeaturesReceived so that in case a failed
+                            // resumption, we can continue with normal resource binding. See text of
+                            // XEP-198 5. below Example 11.
+                            lastFeaturesReceived.reportSuccess();
                             break;
                         case Resumed.ELEMENT:
                             Resumed resumed = ParseStreamManagement.resumed(parser);
