@@ -1119,6 +1119,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 smSessionId = null;
                             }
                             smEnablededSyncPoint.reportSuccess();
+                            LOGGER.fine("Stream Management (XEP-198): succesfully enabled");
                             break;
                         case Failed.ELEMENT:
                             Failed failed = ParseStreamManagement.failed(parser);
@@ -1142,6 +1143,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             }
                             smResumedSyncPoint.reportSuccess();
                             smEnablededSyncPoint.reportSuccess();
+                            LOGGER.fine("Stream Management (XEP-198): Stream resumed");
                             break;
                         case AckAnswer.ELEMENT:
                             assert(smEnablededSyncPoint.wasSuccessfully() && isSmAvailable());
