@@ -59,6 +59,7 @@ public class Message extends Packet {
     private Type type = Type.normal;
     private String thread = null;
     private String language;
+    private String chatHistoryId = null;
 
     private final Set<Subject> subjects = new HashSet<Subject>();
     private final Set<Body> bodies = new HashSet<Body>();
@@ -385,6 +386,16 @@ public class Message extends Packet {
         return language;
     }
 
+
+    public String getChatHistoryId() {
+        return chatHistoryId;
+    }
+
+    public void setChatHistoryId(String chatHistoryId) {
+        this.chatHistoryId = chatHistoryId;
+    }
+
+
     /**
      * Sets the xml:lang of this Message.
      *
@@ -423,7 +434,11 @@ public class Message extends Packet {
         if (type != Type.normal) {
             buf.attribute("type", type);
         }
-        buf.rightAngleBracket();
+        if (chatHistoryId != null) {
+            buf.append(" chat_history_id=\"").append(chatHistoryId).append("\"");
+        }
+
+        buf.rightAngelBracket();
 
         // Add the subject in the default language
         Subject defaultSubject = getMessageSubject(null);
