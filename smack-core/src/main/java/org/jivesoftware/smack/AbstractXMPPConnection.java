@@ -796,7 +796,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                             LOGGER.fine("Did not find debugger class '" + debugger + "'");
                         }
                         catch (Exception ex) {
-                            LOGGER.warning("Unabled to instantiate either Smack debugger class");
+                            LOGGER.warning("Unabled to get Smack debugger class for " + debugger);
                         }
                         if (debuggerClass != null) {
                             // We found a debugger, let's use it
@@ -806,8 +806,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 }
                 if (debuggerClass != null) {
                     // Create a new debugger instance. If an exception occurs then disable the
-                    // debugging
-                    // option
+                    // debugging option
                     try {
                         Constructor<?> constructor = debuggerClass.getConstructor(
                                         XMPPConnection.class, Writer.class, Reader.class);
@@ -817,7 +816,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                     }
                     catch (Exception e) {
                         throw new IllegalArgumentException(
-                                        "Can't initialize the configured debugger!", e);
+                                        "Can't initialize the configured debugger: " + debuggerClass, e);
                     }
                 } else {
                     LOGGER.severe("Debugging enabled but could not find debugger class");
