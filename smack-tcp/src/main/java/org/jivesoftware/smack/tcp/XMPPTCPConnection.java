@@ -173,7 +173,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final SynchronizationPoint<XMPPException> compressSyncPoint = new SynchronizationPoint<XMPPException>(
                     this);
 
-    private static boolean shouldUseSmAsDefault = true;
+    private static boolean shouldUseSmAsDefault = false;
 
     private static boolean shouldUseSmResumptionAsDefault = true;
 
