@@ -173,9 +173,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final SynchronizationPoint<XMPPException> compressSyncPoint = new SynchronizationPoint<XMPPException>(
                     this);
 
-    private static boolean smEnabledDefault = false;
+    private static boolean useSmDefault = false;
 
-    private static boolean smResumptionEnabledDefault = true;
+    private static boolean useSmResumptionDefault = true;
 
     /**
      * The stream ID of the stream that is currently resumable, ie. the stream we hold the state
@@ -203,8 +203,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     /**
      * Indicates whether Stream Management (XEP-198) should be used if it's supported by the server.
      */
-    private boolean smEnabled = smEnabledDefault;
-    private boolean smResumptionEnabled = smResumptionEnabledDefault;
+    private boolean useSm = useSmDefault;
+    private boolean useSmResumption = useSmResumptionDefault;
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
     private BlockingQueue<Packet> unacknowledgedStanzas;
@@ -367,13 +367,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         bindResourceAndEstablishSession(resource);
 
-        if (isSmAvailable() && smEnabled) {
+        if (isSmAvailable() && useSm) {
             // Remove what is maybe left from previously stream managed sessions
             unacknowledgedStanzas = new ArrayBlockingQueue<Packet>(QUEUE_SIZE);
             clientHandledStanzasCount = 0;
             serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
-            smEnablededSyncPoint.sendRequestAndWaitForResponse(new Enable(smResumptionEnabled, smClientMaxResumptionTime));
+            smEnablededSyncPoint.sendRequestAndWaitForResponse(new Enable(useSmResumption, smClientMaxResumptionTime));
             if (!smEnablededSyncPoint.wasSuccessfully()) {
                 LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
@@ -1405,20 +1405,20 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
     }
 
-    public static void setStreamManagementEnabledDefault(boolean smEnabledDefault) {
-        XMPPTCPConnection.smEnabledDefault = smEnabledDefault;
+    public static void setUseStreamManagementDefault(boolean useSmDefault) {
+        XMPPTCPConnection.useSmDefault = useSmDefault;
     }
 
-    public static void setStreamManagementResumptionEnabledDefault(boolean smResumptionEnabledDefault) {
-        XMPPTCPConnection.smResumptionEnabledDefault = smResumptionEnabledDefault;
+    public static void setUseStreamManagementResumptiodDefault(boolean useSmResupmptionDefault) {
+        XMPPTCPConnection.useSmResumptionDefault = useSmResupmptionDefault;
     }
 
-    public void setStramMangementEnabled(boolean smEnabled) {
-        this.smEnabled = smEnabled;
+    public void setUseStramMangement(boolean useSm) {
+        this.useSm = useSm;
     }
 
-    public void setStramMangementResumptionEnabled(boolean smResumptionEnabled) {
-        this.smResumptionEnabled = smResumptionEnabled;
+    public void setUseStramMangementResumption(boolean useSmResumption) {
+        this.useSmResumption = useSmResumption;
     }
 
     /**
