@@ -16,7 +16,11 @@
  */
 package org.jivesoftware.smack.tcp.sm;
 
+import java.math.BigInteger;
+
 public class SMUtils {
+
+    private static long TWO_POWER_THIRTYTWO = BigInteger.ONE.shiftLeft(32).longValue();
 
     /**
      * Quoting XEP-198 4.:
@@ -29,7 +33,7 @@ public class SMUtils {
      */
     public static long incrementHeight(long height) {
         height++;
-        if (height == 2 << 32) {
+        if (height == TWO_POWER_THIRTYTWO) {
             height = 0;
         }
         return height;
