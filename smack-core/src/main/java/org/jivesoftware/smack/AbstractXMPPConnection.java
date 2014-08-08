@@ -412,6 +412,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         // Wait until either:
         // - the servers last features stanza has been parsed
         // - the timeout occurs
+        LOGGER.finer("Waiting for last features to be receiving before continuing with resource binding");
         lastFeaturesReceived.checkIfSuccessOrWait();
 
 

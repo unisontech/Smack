@@ -376,6 +376,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             // SM resumption failed, what Smack does here is to report success of
             // lastFeaturesReceived in case of sm resumption was answered with 'failed' so that
             // normal resource binding can be tried.
+            LOGGER.fine("Stream resumption failed, continuing with normal stream establishment process");
         }
 
         bindResourceAndEstablishSession(resource);
