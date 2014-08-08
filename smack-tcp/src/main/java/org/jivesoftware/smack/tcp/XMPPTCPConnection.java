@@ -65,6 +65,7 @@ import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Failed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resume;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.Resumed;
 import org.jivesoftware.smack.tcp.sm.packet.StreamManagement.StreamManagementFeature;
+import org.jivesoftware.smack.tcp.sm.predicates.ForEveryStanza;
 import org.jivesoftware.smack.tcp.sm.provider.ParseStreamManagement;
 import org.jivesoftware.smack.util.ArrayBlockingQueueWithShutdown;
 import org.jivesoftware.smack.util.PacketParserUtils;
@@ -106,6 +107,7 @@ import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -209,7 +211,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private long clientHandledStanzasCount = 0;
     private BlockingQueue<Packet> unacknowledgedStanzas;
     private Set<PacketListener> stanzaAcknowledgedListeners = new HashSet<PacketListener>();
-    private Set<PacketFilter> requestAckPredicates = new HashSet<PacketFilter>();
+
+    /**
+     * Predicates that determine if an stream management ack should be requested from the server.
+     * <p>
+     * We use a linked hash set here, so that the order how the predicates are added matches the
+     * order in which they are invoked in order to determine if an ack request should be send or not.
+     * </p>
+     */
+    private Set<PacketFilter> requestAckPredicates = new LinkedHashSet<PacketFilter>();
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
@@ -377,7 +387,16 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             serverHandledStanzasCount = 0;
             // XEP-198 3. Enabling Stream Management
             smEnablededSyncPoint.sendRequestAndWaitForResponse(new Enable(useSmResumption, smClientMaxResumptionTime));
-            if (!smEnablededSyncPoint.wasSuccessfully()) {
+            if (smEnablededSyncPoint.wasSuccessfully()) {
+                synchronized (requestAckPredicates) {
+                    if (requestAckPredicates.isEmpty()) {
+                        // Assure that we have at lest one predicate set up that so that we request
+                        // acks for the server and eventually flush some stanzas from the
+                        // unacknowledged stanza queue
+                        requestAckPredicates.add(ForEveryStanza.INSTANCE);
+                    }
+                }
+            } else {
                 LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
         }
@@ -1444,6 +1463,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     public boolean removeRequestAckPredicate(PacketFilter predicate) {
         synchronized (requestAckPredicates) {
             return requestAckPredicates.remove(predicate);
+        }
+    }
+
+    public void removeAllRequestAckPredicates() {
+        synchronized (requestAckPredicates) {
+            requestAckPredicates.clear();
         }
     }
 
