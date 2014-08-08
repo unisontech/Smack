@@ -846,21 +846,16 @@ public class PacketParserUtils {
      * @throws Exception if an exception occurs while parsing the packet.
      */
     public static XMPPError parseError(XmlPullParser parser) throws Exception {
-        final String errorNamespace = "urn:ietf:params:xml:ns:xmpp-stanzas";
         String type = null;
         String message = null;
         String condition = null;
         List<PacketExtension> extensions = new ArrayList<PacketExtension>();
 
         // Parse the error header
-        for (int i=0; i<parser.getAttributeCount(); i++) {
-            if (parser.getAttributeName(i).equals("type")) {
-            	type = parser.getAttributeValue("", "type");
-            }
-        }
-        boolean done = false;
+        type = parser.getAttributeValue("", "type");
         // Parse the text and condition tags
-        while (!done) {
+        outerloop:
+        while (true) {
             int eventType = parser.next();
             if (eventType == XmlPullParser.START_TAG) {
                 if (parser.getName().equals(Packet.TEXT)) {
@@ -870,7 +865,7 @@ public class PacketParserUtils {
                 	// Condition tag, it can be xmpp error or an application defined error.
                     String elementName = parser.getName();
                     String namespace = parser.getNamespace();
-                    if (errorNamespace.equals(namespace)) {
+                    if (namespace.equals(XMPPError.NAMESPACE)) {
                     	condition = elementName;
                     }
                     else {
@@ -880,7 +875,7 @@ public class PacketParserUtils {
             }
                 else if (eventType == XmlPullParser.END_TAG) {
                     if (parser.getName().equals("error")) {
-                        done = true;
+                        break outerloop;
                     }
                 }
         }

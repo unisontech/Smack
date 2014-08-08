@@ -41,13 +41,28 @@ public class ParseStreamManagement {
 
     public static Failed failed(XmlPullParser parser) throws XmlPullParserException, IOException {
         ParserUtils.assertAtStartTag(parser);
-        // TODO Parse XMPPError, may requires to modularize PacketParserUtils.parseError()
-        XMPPError error = new XMPPError(null);
+        String name;
+        String condition = "unkown";
+        outerloop:
         while(true) {
             int event = parser.next();
-            if (event == XmlPullParser.END_TAG && parser.getName().equals(Failed.ELEMENT))
+            switch (event) {
+            case XmlPullParser.START_TAG:
+                name = parser.getName();
+                String namespace = parser.getNamespace();
+                if (XMPPError.NAMESPACE.equals(namespace)) {
+                    condition = name;
+                }
                 break;
+            case XmlPullParser.END_TAG:
+                name = parser.getName();
+                if (Failed.ELEMENT.equals(name)) {
+                    break outerloop;
+                }
+                break;
+            }
         }
+        XMPPError error = new XMPPError(condition);
         ParserUtils.assertAtEndTag(parser);
         return new Failed(error);
     }
