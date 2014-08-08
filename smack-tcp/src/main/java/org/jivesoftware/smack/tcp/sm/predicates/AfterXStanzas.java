@@ -30,7 +30,7 @@ public class AfterXStanzas implements PacketFilter {
     }
 
     @Override
-    public boolean accept(Packet packet) {
+    public synchronized boolean accept(Packet packet) {
         currentCount++;
         if (currentCount == count) {
             return true;
