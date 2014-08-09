@@ -24,7 +24,7 @@ public class AfterXStanzas implements PacketFilter {
     final int count;
     int currentCount;
 
-    private AfterXStanzas(int count) {
+    public AfterXStanzas(int count) {
         this.count = count;
         currentCount = 0;
     }
