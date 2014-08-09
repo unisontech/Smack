@@ -33,6 +33,7 @@ public class AfterXStanzas implements PacketFilter {
     public synchronized boolean accept(Packet packet) {
         currentCount++;
         if (currentCount == count) {
+            currentCount = 0;
             return true;
         }
         return false;
