@@ -381,6 +381,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         bindResourceAndEstablishSession(resource);
 
+        List<Packet> previouslyUnackedStanzas = new LinkedList<Packet>();
+        if (unacknowledgedStanzas != null) {
+            // There was a previous connection with SM enabled but that was either not resumable or
+            // failed to resume. Make sure that we (re-)send the unacknowledged stanzas.
+            unacknowledgedStanzas.drainTo(previouslyUnackedStanzas);
+        }
         if (isSmAvailable() && useSm) {
             // Remove what is maybe left from previously stream managed sessions
             unacknowledgedStanzas = new ArrayBlockingQueue<Packet>(QUEUE_SIZE);
@@ -400,6 +406,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             } else {
                 LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
+        }
+        // (Re-)send the stanzas *after* we tried to enable SM
+        for (Packet stanza : previouslyUnackedStanzas) {
+            sendPacketInternal(stanza);
         }
 
         // Stores the authentication for future reconnection
