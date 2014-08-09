@@ -45,17 +45,19 @@ public class SynchronizationPoint<E extends Exception> {
         failureException = null;
     }
 
-    public void sendRequestAndWaitForResponse(StreamElement request) throws E, NoResponseException,
+    public void sendAndWaitForResponse(StreamElement request) throws NoResponseException,
                     NotConnectedException {
-        assert(state == State.NoResponse);
+        assert (state == State.NoResponse);
         connectionLock.lock();
         try {
             if (request != null) {
                 if (request instanceof Packet) {
                     connection.sendPacket((Packet) request);
-                } else {
+                }
+                else {
                     connection.sendStreamElement(request);
                 }
+                state = State.RequestSent;
             }
             waitForConditionOrTimeout();
         }
@@ -64,7 +66,18 @@ public class SynchronizationPoint<E extends Exception> {
         }
         switch (state) {
         case NoResponse:
+        case RequestSent:
             throw new NoResponseException();
+        default:
+            // Do nothing
+            break;
+        }
+    }
+
+    public void sendAndWaitForResponseOrThrow(StreamElement request) throws E, NoResponseException,
+                    NotConnectedException {
+        sendAndWaitForResponse(request);
+        switch (state) {
         case Failure:
             if (failureException != null) {
                 throw failureException;
@@ -129,6 +142,10 @@ public class SynchronizationPoint<E extends Exception> {
         return state == State.Success;
     }
 
+    public boolean requestSent() {
+        return state == State.RequestSent;
+    }
+
     private void waitForConditionOrTimeout() {
         try {
             condition.await(connection.getPacketReplyTimeout(), TimeUnit.MILLISECONDS);
@@ -141,6 +158,7 @@ public class SynchronizationPoint<E extends Exception> {
     private enum State {
         Success,
         Failure,
+        RequestSent,
         NoResponse
     }
 }

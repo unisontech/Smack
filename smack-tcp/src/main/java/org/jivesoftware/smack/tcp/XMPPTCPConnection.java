@@ -189,7 +189,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private final SynchronizationPoint<XMPPException> smResumedSyncPoint = new SynchronizationPoint<XMPPException>(
                     this);
 
-    private final SynchronizationPoint<XMPPException> smEnablededSyncPoint = new SynchronizationPoint<XMPPException>(
+    private final SynchronizationPoint<XMPPException> smEnabledSyncPoint = new SynchronizationPoint<XMPPException>(
                     this);
 
     /**
@@ -367,7 +367,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         if (isSmResumptionPossible()) {
-            smResumedSyncPoint.sendRequestAndWaitForResponse(new Resume(clientHandledStanzasCount, smSessionId));
+            smResumedSyncPoint.sendAndWaitForResponse(new Resume(clientHandledStanzasCount, smSessionId));
             if (smResumedSyncPoint.wasSuccessfully()) {
                 // We successfully resumed the stream, be done here
                 afterSuccessfulLogin(false, true);
@@ -392,19 +392,16 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             unacknowledgedStanzas = new ArrayBlockingQueue<Packet>(QUEUE_SIZE);
             clientHandledStanzasCount = 0;
             serverHandledStanzasCount = 0;
-            // XEP-198 3. Enabling Stream Management
-            smEnablededSyncPoint.sendRequestAndWaitForResponse(new Enable(useSmResumption, smClientMaxResumptionTime));
-            if (smEnablededSyncPoint.wasSuccessfully()) {
-                synchronized (requestAckPredicates) {
-                    if (requestAckPredicates.isEmpty()) {
-                        // Assure that we have at lest one predicate set up that so that we request
-                        // acks for the server and eventually flush some stanzas from the
-                        // unacknowledged stanza queue
-                        requestAckPredicates.add(ForEveryStanza.INSTANCE);
-                    }
+            // XEP-198 3. Enabling Stream Management. If the server response to 'Enable' is 'Failed'
+            // then this is a non recoverable error and we therefore throw an exception.
+            smEnabledSyncPoint.sendAndWaitForResponseOrThrow(new Enable(useSmResumption, smClientMaxResumptionTime));
+            synchronized (requestAckPredicates) {
+                if (requestAckPredicates.isEmpty()) {
+                    // Assure that we have at lest one predicate set up that so that we request acks
+                    // for the server and eventually flush some stanzas from the unacknowledged
+                    // stanza queue
+                    requestAckPredicates.add(ForEveryStanza.INSTANCE);
                 }
-            } else {
-                LOGGER.log(Level.WARNING, "Could not enable stream mangement");
             }
         }
         // (Re-)send the stanzas *after* we tried to enable SM
@@ -542,7 +539,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         maybeCompressFeaturesReceived.init();
         compressSyncPoint.init();
         smResumedSyncPoint.init();
-        smEnablededSyncPoint.init();
+        smEnabledSyncPoint.init();
         initalOpenStreamSend.init();
     }
 
@@ -836,7 +833,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         // If stream compression was offered by the server and we want to use
         // compression then send compression request to the server
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
-            compressSyncPoint.sendRequestAndWaitForResponse(new Compress(compressionHandler.getCompressionMethod()));
+            compressSyncPoint.sendAndWaitForResponseOrThrow(new Compress(compressionHandler.getCompressionMethod()));
         } else {
             LOGGER.warning("Could not enabled compression because no matching handler/method pair was found");
         }
@@ -1151,18 +1148,28 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 // Mark this a aon-resumable stream by setting smSessionId to null
                                 smSessionId = null;
                             }
-                            smEnablededSyncPoint.reportSuccess();
+                            smEnabledSyncPoint.reportSuccess();
                             LOGGER.fine("Stream Management (XEP-198): succesfully enabled");
                             break;
                         case Failed.ELEMENT:
                             Failed failed = ParseStreamManagement.failed(parser);
                             XMPPError xmppError = failed.getXMPPError();
                             XMPPException xmppException = new XMPPErrorException("Stream Management failed", xmppError);
-                            smEnablededSyncPoint.reportFailure(xmppException);
-                            // Report success for last lastFeaturesReceived so that in case a failed
-                            // resumption, we can continue with normal resource binding. See text of
-                            // XEP-198 5. below Example 11.
-                            lastFeaturesReceived.reportSuccess();
+                            // If only XEP-198 would specify different failure elements for the SM
+                            // enable and SM resume failure case. But this is not the case, so we
+                            // need to determine if this is a 'Failed' response for either 'Enable'
+                            // or 'Resume'.
+                            if (smResumedSyncPoint.requestSent()) {
+                                smResumedSyncPoint.reportFailure(xmppException);
+                            }
+                            else {
+                                assert(smEnabledSyncPoint.requestSent());
+                                smEnabledSyncPoint.reportFailure(xmppException);
+                                // Report success for last lastFeaturesReceived so that in case a
+                                // failed resumption, we can continue with normal resource binding.
+                                // See text of XEP-198 5. below Example 11.
+                                lastFeaturesReceived.reportSuccess();
+                            }
                             break;
                         case Resumed.ELEMENT:
                             Resumed resumed = ParseStreamManagement.resumed(parser);
@@ -1178,17 +1185,17 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                 packetWriter.sendStreamElement(stanza);
                             }
                             smResumedSyncPoint.reportSuccess();
-                            smEnablededSyncPoint.reportSuccess();
+                            smEnabledSyncPoint.reportSuccess();
                             LOGGER.fine("Stream Management (XEP-198): Stream resumed");
                             break;
                         case AckAnswer.ELEMENT:
-                            assert(smEnablededSyncPoint.wasSuccessfully() && isSmAvailable());
+                            assert(smEnabledSyncPoint.wasSuccessfully() && isSmAvailable());
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             processHandledCount(ackAnswer.getHandledCount());
                             break;
                         case AckRequest.ELEMENT:
                             // AckRequest stanzas are trival, no need to parse them
-                            if (smEnablededSyncPoint.wasSuccessfully()) {
+                            if (smEnabledSyncPoint.wasSuccessfully()) {
                                 packetWriter.sendStreamElement(new AckAnswer(clientHandledStanzasCount));
                             } else {
                                 LOGGER.warning("SM Ack Request received while SM is not enabled");
@@ -1511,7 +1518,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean isSmEnabled() {
-        return smEnablededSyncPoint.wasSuccessfully();
+        return smEnabledSyncPoint.wasSuccessfully();
     }
 
     public boolean isSmResumptionPossible() {
