@@ -1449,11 +1449,11 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         XMPPTCPConnection.useSmResumptionDefault = useSmResupmptionDefault;
     }
 
-    public void setUseStramMangement(boolean useSm) {
+    public void setUseStramManagement(boolean useSm) {
         this.useSm = useSm;
     }
 
-    public void setUseStramMangementResumption(boolean useSmResumption) {
+    public void setUseStramManagementResumption(boolean useSmResumption) {
         this.useSmResumption = useSmResumption;
     }
 
