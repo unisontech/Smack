@@ -554,7 +554,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     @Override
     protected void sendPacketInternal(Packet packet) throws NotConnectedException {
         sendStreamElement(packet);
-        if (isSmEnabled() || isDisconnectedButSmResumptionPossible()) {
+        if (isSmEnabled()) {
             for (PacketFilter requestAckPredicate : requestAckPredicates) {
                 if (requestAckPredicate.accept(packet)) {
                     requestSmAcknowledgementInternal();
