@@ -38,4 +38,7 @@ public class AfterXStanzas implements PacketFilter {
         return false;
     }
 
+    public static AfterXStanzas whereXisFive() {
+        return new AfterXStanzas(5);
+    }
 }
