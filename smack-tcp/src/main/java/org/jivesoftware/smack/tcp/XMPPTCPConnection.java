@@ -111,9 +111,11 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -220,6 +222,12 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * </p>
      */
     private final Collection<PacketListener> stanzaAcknowledgedListeners = new ConcurrentLinkedQueue<PacketListener>();
+
+    /**
+     * This listeners are invoked for a acknowledged stanza that has the given stanza ID. They will
+     * only be invoked once and automatically removed after that.
+     */
+    private final Map<String, PacketListener> idStanzaAcknowledgedListeners = new ConcurrentHashMap<String, PacketListener>();
 
     /**
      * Predicates that determine if an stream management ack should be requested from the server.
@@ -1522,6 +1530,18 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         stanzaAcknowledgedListeners.clear();
     }
 
+    public PacketListener addIdStanzaAcknowledgedListener(String id, PacketListener listener) {
+        return idStanzaAcknowledgedListeners.put(id, listener);
+    }
+
+    public PacketListener removeIdStanzaAcknowledgedListener(String id) {
+        return idStanzaAcknowledgedListeners.remove(id);
+    }
+
+    public void removeAllIdStanzaAcknowledgedListeners() {
+        idStanzaAcknowledgedListeners.clear();
+    }
+
     public boolean isSmAvailable() {
         return hasFeature(StreamManagementFeature.ELEMENT, StreamManagement.NAMESPACE);
     }
@@ -1579,6 +1599,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         for (Packet ackedStanza : ackedStanzas) {
             for (PacketListener listener : stanzaAcknowledgedListeners) {
                 listener.processPacket(ackedStanza);
+            }
+            String id = ackedStanza.getPacketID();
+            if (id != null) {
+                PacketListener listener = idStanzaAcknowledgedListeners.remove(id);
+                if (listener != null) {
+                    listener.processPacket(ackedStanza);
+                }
             }
         }
         serverHandledStanzasCount = handledCount;
