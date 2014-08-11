@@ -105,7 +105,7 @@ import java.security.Security;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -114,6 +114,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -210,7 +211,15 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     private long serverHandledStanzasCount = 0;
     private long clientHandledStanzasCount = 0;
     private BlockingQueue<Packet> unacknowledgedStanzas;
-    private Set<PacketListener> stanzaAcknowledgedListeners = new HashSet<PacketListener>();
+
+    /**
+     * This listeners are invoked for every stanza that got acknowledged.
+     * <p>
+     * We use a {@link ConccurrentLinkedQueue} here in order to allow the listeners to remove
+     * themselves after they have been invoked.
+     * </p>
+     */
+    private Collection<PacketListener> stanzaAcknowledgedListeners = new ConcurrentLinkedQueue<PacketListener>();
 
     /**
      * Predicates that determine if an stream management ack should be requested from the server.
@@ -1501,16 +1510,16 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         packetWriter.sendStreamElement(AckRequest.INSTANCE);
     }
 
-    public boolean addStanzaAcknowledgedListener(PacketListener listener) {
-        synchronized (stanzaAcknowledgedListeners) {
-            return stanzaAcknowledgedListeners.add(listener);
-        }
+    public void addStanzaAcknowledgedListener(PacketListener listener) {
+        stanzaAcknowledgedListeners.add(listener);
     }
 
     public boolean removeStanzaAcknowledgedListener(PacketListener listener) {
-        synchronized (stanzaAcknowledgedListeners) {
-            return stanzaAcknowledgedListeners.remove(listener);
-        }
+        return stanzaAcknowledgedListeners.remove(listener);
+    }
+
+    public void removeAllStanzaAcknowledgedListeners() {
+        stanzaAcknowledgedListeners.clear();
     }
 
     public boolean isSmAvailable() {
@@ -1568,10 +1577,8 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
             ackedStanzas.add(ackedStanza);
         }
         for (Packet ackedStanza : ackedStanzas) {
-            synchronized (stanzaAcknowledgedListeners) {
-                for (PacketListener listener : stanzaAcknowledgedListeners) {
-                    listener.processPacket(ackedStanza);
-                }
+            for (PacketListener listener : stanzaAcknowledgedListeners) {
+                listener.processPacket(ackedStanza);
             }
         }
         serverHandledStanzasCount = handledCount;
