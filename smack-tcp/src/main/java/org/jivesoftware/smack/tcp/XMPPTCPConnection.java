@@ -540,10 +540,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         }
 
         setWasAuthenticated(authenticated);
-        // If this was an instant shutdown *and* we are able to resume the stream, then don't set
+        // If we are able to resume the stream, then don't set
         // connected/authenticated/usingTLS to false since we like behave like we are still
         // connected (e.g. sendPacket should not throw a NotConnectedException).
-        if (!instant && !isSmResumptionPossible()) {
+        if (!isSmResumptionPossible()) {
             authenticated = false;
             connected = false;
             usingTLS = false;
@@ -904,7 +904,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 (packetWriter == null || packetWriter.done())) return;
 
         // Closes the connection temporary. A reconnection is possible
-        shutdown();
+        instantShutdown();
 
         // Notify connection listeners of the error.
         callConnectionClosedOnErrorListener(e);
@@ -1069,9 +1069,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             processPacket(packet);
                             break;
                         case "stream":
-                            // We found an opening stream. Record information about it, then notify
-                            // the connectionID lock so that the packet reader startup can finish.
-                            // Ensure the correct jabber:client namespace is being used.
+                            // We found an opening stream.
                             if ("jabber:client".equals(parser.getNamespace(null))) {
                                 // Get the connection id.
                                 for (int i=0; i<parser.getAttributeCount(); i++) {
@@ -1236,9 +1234,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 // The exception can be ignored if the the connection is 'done'
                 // or if the it was caused because the socket got closed
                 if (!(done || isSocketClosed())) {
-                    synchronized(this) {
-                        this.notify();
-                    }
                     // Close the connection and notify connection listeners of the
                     // error.
                     notifyConnectionError(e);
@@ -1309,7 +1304,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
          * @throws NotConnectedException 
          */
         protected void sendStreamElement(StreamElement element) throws NotConnectedException {
-            if (done() && !resumeableStreamAvailable()) {
+            if (done() && !isSmResumptionPossible()) {
                 // Don't throw a NotConnectedException is there is an resumable stream available
                 throw new NotConnectedException();
             }
@@ -1441,7 +1436,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                 // The exception can be ignored if the the connection is 'done'
                 // or if the it was caused because the socket got closed
                 if (!(done() || isSocketClosed())) {
-                    shutdown(true);
                     notifyConnectionError(e);
                 } else {
                     LOGGER.log(Level.FINE, "Ignoring Exception in writePackets()", e);
@@ -1550,23 +1544,19 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         return smEnabledSyncPoint.wasSuccessfully();
     }
 
-    public boolean isSmResumptionPossible() {
-        return smSessionId != null;
-    }
-
     public boolean isDisconnectedButSmResumptionPossible() {
-        return disconnectedButResumeable && resumeableStreamAvailable();
+        return disconnectedButResumeable && isSmResumptionPossible();
     }
 
-    private boolean resumeableStreamAvailable() {
+    public boolean isSmResumptionPossible() {
         if (packetWriter == null)
             return false;
 
         // There is no resumable stream available
-        if (!isSmResumptionPossible())
+        if (smSessionId == null)
             return false;
 
-        Long shutdownTimestamp = packetWriter.shutdownTimestamp;
+        final Long shutdownTimestamp = packetWriter.shutdownTimestamp;
         // Seems like we are already reconnected, report true
         if (shutdownTimestamp == null) {
             return true;
