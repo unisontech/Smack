@@ -219,7 +219,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * themselves after they have been invoked.
      * </p>
      */
-    private Collection<PacketListener> stanzaAcknowledgedListeners = new ConcurrentLinkedQueue<PacketListener>();
+    private final Collection<PacketListener> stanzaAcknowledgedListeners = new ConcurrentLinkedQueue<PacketListener>();
 
     /**
      * Predicates that determine if an stream management ack should be requested from the server.
@@ -228,7 +228,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * order in which they are invoked in order to determine if an ack request should be send or not.
      * </p>
      */
-    private Set<PacketFilter> requestAckPredicates = new LinkedHashSet<PacketFilter>();
+    private final Set<PacketFilter> requestAckPredicates = new LinkedHashSet<PacketFilter>();
 
     /**
      * Creates a new connection to the specified XMPP server. A DNS SRV lookup will be
