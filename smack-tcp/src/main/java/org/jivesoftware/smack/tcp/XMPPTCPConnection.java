@@ -1549,9 +1549,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean isSmResumptionPossible() {
-        if (packetWriter == null)
-            return false;
-
         // There is no resumable stream available
         if (smSessionId == null)
             return false;
