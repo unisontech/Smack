@@ -363,7 +363,9 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         saslFeatureReceived.checkIfSuccessOrWaitOrThrow();
 
         // Do partial version of nameprep on the username.
-        username = username.toLowerCase(Locale.US).trim();
+        if (username != null) {
+            username = username.toLowerCase(Locale.US).trim();
+        }
 
         if (saslAuthentication.hasNonAnonymousAuthentication()) {
             // Authenticate using SASL
