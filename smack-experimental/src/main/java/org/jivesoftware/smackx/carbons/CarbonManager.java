@@ -29,11 +29,12 @@ import org.jivesoftware.smack.PacketListener;
 import org.jivesoftware.smack.XMPPConnectionRegistry;
 import org.jivesoftware.smack.XMPPException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
-import org.jivesoftware.smack.filter.IQReplyFilter;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smackx.carbons.packet.CarbonExtension;
+import org.jivesoftware.smackx.carbons.packet.Carbon;
+import org.jivesoftware.smackx.carbons.packet.CarbonExtension.Private;
 import org.jivesoftware.smackx.disco.ServiceDiscoveryManager;
 
 /**
@@ -85,13 +86,13 @@ public class CarbonManager extends Manager {
     }
 
     private static IQ carbonsEnabledIQ(final boolean new_state) {
-        IQ setIQ = new IQ() {
-            public String getChildElementXML() {
-                return "<" + (new_state? "enable" : "disable") + " xmlns='" + CarbonExtension.NAMESPACE + "'/>";
-            }
-        };
-        setIQ.setType(IQ.Type.set);
-        return setIQ;
+        IQ request;
+        if (new_state) {
+            request = new Carbon.Enable();
+        } else {
+            request = new Carbon.Disable();
+        }
+        return request;
     }
 
     /**
@@ -119,17 +120,11 @@ public class CarbonManager extends Manager {
     public void sendCarbonsEnabled(final boolean new_state) throws NotConnectedException {
         IQ setIQ = carbonsEnabledIQ(new_state);
 
-        connection().addPacketListener(new PacketListener() {
+        connection().sendIqWithResponseCallback(setIQ, new PacketListener() {
             public void processPacket(Packet packet) {
-                IQ result = (IQ)packet;
-                if (result.getType() == IQ.Type.result) {
-                    enabled_state = new_state;
-                }
-                connection().removePacketListener(this);
+                enabled_state = new_state;
             }
-        }, new IQReplyFilter(setIQ, connection()));
-
-        connection().sendPacket(setIQ);
+        });
     }
 
     /**
@@ -187,8 +182,10 @@ public class CarbonManager extends Manager {
      * Mark a message as "private", so it will not be carbon-copied.
      *
      * @param msg Message object to mark private
+     * @deprecated use {@link Private#addTo(Message)}
      */
+    @Deprecated
     public static void disableCarbons(Message msg) {
-        msg.addExtension(new CarbonExtension.Private());
+        msg.addExtension(Private.INSTANCE);
     }
 }

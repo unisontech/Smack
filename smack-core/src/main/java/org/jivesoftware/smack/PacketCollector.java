@@ -24,7 +24,6 @@ import org.jivesoftware.smack.SmackException.NoResponseException;
 import org.jivesoftware.smack.XMPPException.XMPPErrorException;
 import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.packet.Packet;
-import org.jivesoftware.smack.packet.XMPPError;
 
 /**
  * Provides a mechanism to collect packets into a result queue that pass a
@@ -103,8 +102,9 @@ public class PacketCollector {
      * @return the next packet result, or <tt>null</tt> if there are no more
      *      results.
      */
-    public Packet pollResult() {
-    	return resultQueue.poll();
+    @SuppressWarnings("unchecked")
+    public <P extends Packet> P pollResult() {
+        return (P) resultQueue.poll();
     }
 
     /**
@@ -113,9 +113,10 @@ public class PacketCollector {
      * 
      * @return the next available packet.
      */
-    public Packet nextResultBlockForever() {
+    @SuppressWarnings("unchecked")
+    public <P extends Packet> P nextResultBlockForever() {
         try {
-            return resultQueue.take();
+            return (P) resultQueue.take();
         }
         catch (InterruptedException e) {
             throw new RuntimeException(e);
@@ -128,7 +129,7 @@ public class PacketCollector {
      * 
      * @return the next availabe packet.
      */
-    public Packet nextResult() {
+    public <P extends Packet> P nextResult() {
         return nextResult(connection.getPacketReplyTimeout());
     }
 
@@ -178,10 +179,7 @@ public class PacketCollector {
             throw new NoResponseException();
         }
 
-        XMPPError xmppError = result.getError();
-        if (xmppError != null) {
-            throw new XMPPErrorException(xmppError);
-        }
+        XMPPErrorException.ifHasErrorThenThrow(result);
 
         return result;
     }
