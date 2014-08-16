@@ -1147,7 +1147,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
     @SuppressWarnings("unchecked")
     public <F extends PacketExtension> F getFeature(String element, String namespace) {
-        return (F) streamFeatures.get(ProviderManager.getKey(element, namespace));
+        return (F) streamFeatures.get(XmppStringUtils.generateKey(element, namespace));
     }
 
     public boolean hasFeature(String element, String namespace) {
@@ -1155,7 +1155,7 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     }
 
     protected void addStreamFeature(PacketExtension feature) {
-        String key = ProviderManager.getKey(feature.getElementName(), feature.getNamespace());
+        String key = XmppStringUtils.generateKey(feature.getElementName(), feature.getNamespace());
         streamFeatures.put(key, feature);
     }
 

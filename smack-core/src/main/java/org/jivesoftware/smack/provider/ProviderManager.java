@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jivesoftware.smack.packet.IQ;
+import org.jxmpp.util.XmppStringUtils;
 
 /**
  * Manages providers for parsing custom XML sub-documents of XMPP packets. Two types of
@@ -261,15 +262,7 @@ public final class ProviderManager {
         return Collections.unmodifiableCollection(extensionProviders.values());
     }
 
-    /**
-     * Returns a String key for a given element name and namespace.
-     *
-     * @param elementName the element name.
-     * @param namespace the namespace.
-     * @return a unique key for the element name and namespace pair.
-     */
-    // TODO Move to XmppStringUtils
-    public static String getKey(String elementName, String namespace) {
-        return elementName + '#' + namespace;
+    private static String getKey(String elementName, String namespace) {
+        return XmppStringUtils.generateKey(elementName, namespace);
     }
 }
