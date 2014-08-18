@@ -45,6 +45,7 @@ import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.RosterPacket;
+import org.jivesoftware.smack.packet.RosterVer;
 import org.jivesoftware.smack.packet.RosterPacket.Item;
 import org.jivesoftware.smack.rosterstore.RosterStore;
 import org.jxmpp.util.XmppStringUtils;
@@ -227,7 +228,7 @@ public class Roster {
         }
 
         RosterPacket packet = new RosterPacket();
-        if (rosterStore != null && connection.isRosterVersioningSupported()) {
+        if (rosterStore != null && isRosterVersioningSupported()) {
             packet.setVersion(rosterStore.getRosterVersion());
         }
         PacketFilter filter = new IQReplyFilter(packet, connection);
@@ -789,6 +790,10 @@ public class Roster {
                 || item.getItemType().equals(RosterPacket.ItemType.from)
                 || item.getItemType().equals(RosterPacket.ItemType.to)
                 || item.getItemType().equals(RosterPacket.ItemType.both);
+    }
+
+    private boolean isRosterVersioningSupported() {
+        return connection.hasFeature(RosterVer.ELEMENT, RosterVer.NAMESPACE);
     }
 
     /**

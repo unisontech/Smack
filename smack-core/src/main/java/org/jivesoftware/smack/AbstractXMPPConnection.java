@@ -183,11 +183,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     protected final ConnectionConfiguration config;
 
     /**
-     * Holds the Caps Node information for the used XMPP service (i.e. the XMPP server)
-     */
-    private String serviceCapsNode;
-
-    /**
      * Defines how the from attribute of outgoing stanzas should be handled.
      */
     private FromMode fromMode = FromMode.OMITTED;
@@ -766,16 +761,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     }
 
     @Override
-    public String getServiceCapsNode() {
-        return serviceCapsNode;
-    }
-
-    @Override
-    public boolean isRosterVersioningSupported() {
-        return hasFeature(RosterVer.ELEMENT, RosterVer.NAMESPACE);
-    }
-
-    @Override
     public long getPacketReplyTimeout() {
         return packetReplyTimeout;
     }
@@ -1087,10 +1072,12 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
     }
 
     @SuppressWarnings("unchecked")
+    @Override
     public <F extends PacketExtension> F getFeature(String element, String namespace) {
         return (F) streamFeatures.get(XmppStringUtils.generateKey(element, namespace));
     }
 
+    @Override
     public boolean hasFeature(String element, String namespace) {
         return getFeature(element, namespace) != null;
     }
