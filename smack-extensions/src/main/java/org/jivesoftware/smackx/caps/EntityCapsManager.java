@@ -239,6 +239,17 @@ public class EntityCapsManager extends Manager {
         CAPS_CACHE.clear();
     }
 
+    private static void addCapsExtensionInfo(String from, CapsExtension capsExtension) {
+        String hash = capsExtension.getHash().toLowerCase(Locale.US);
+        if (!SUPPORTED_HASHES.containsKey(hash))
+            return;
+
+        String node = capsExtension.getNode();
+        String ver = capsExtension.getVer();
+
+        JID_TO_NODEVER_CACHE.put(from, new NodeVerHash(node, ver, hash));
+    }
+
     private final Queue<String> lastLocalCapsVersions = new ConcurrentLinkedQueue<String>();
 
     private final ServiceDiscoveryManager sdm;
@@ -259,12 +270,36 @@ public class EntityCapsManager extends Manager {
 
         connection.addConnectionListener(new AbstractConnectionListener() {
             @Override
+            public void connected(XMPPConnection connection) {
+                // It's not clear when a server would report the caps stream
+                // feature, so we try to process it after we are connected and
+                // once after we are authenticated.
+                maybeProcessCapsStreamFeature(connection);
+            }
+            @Override
+            public void authenticated(XMPPConnection connection) {
+                // It's not clear when a server would report the caps stream
+                // feature, so we try to process it after we are connected and
+                // once after we are authenticated.
+                maybeProcessCapsStreamFeature(connection);
+            }
+            @Override
             public void connectionClosed() {
                 presenceSend = false;
             }
             @Override
             public void connectionClosedOnError(Exception e) {
                 presenceSend = false;
+            }
+
+            private void maybeProcessCapsStreamFeature(XMPPConnection connection) {
+                CapsExtension capsExtension = connection.getFeature(
+                                CapsExtension.ELEMENT, CapsExtension.NAMESPACE);
+                if (capsExtension == null) {
+                    return;
+                }
+                String from = connection.getServiceName();
+                addCapsExtensionInfo(from, capsExtension);
             }
         });
 
@@ -282,18 +317,9 @@ public class EntityCapsManager extends Manager {
                 if (!entityCapsEnabled())
                     return;
 
-                CapsExtension ext = (CapsExtension) packet.getExtension(EntityCapsManager.ELEMENT,
-                        EntityCapsManager.NAMESPACE);
-
-                String hash = ext.getHash().toLowerCase(Locale.US);
-                if (!SUPPORTED_HASHES.containsKey(hash))
-                    return;
-
+                CapsExtension capsExtension = CapsExtension.from(packet);
                 String from = packet.getFrom();
-                String node = ext.getNode();
-                String ver = ext.getVer();
-
-                JID_TO_NODEVER_CACHE.put(from, new NodeVerHash(node, ver, hash));
+                addCapsExtensionInfo(from, capsExtension);
             }
 
         }, PRESENCES_WITH_CAPS);

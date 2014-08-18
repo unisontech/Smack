@@ -1079,6 +1079,10 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                                         // Save the connectionID
                                         connectionID = parser.getAttributeValue(i);
                                     }
+                                    // According to RFC 6120 4.7.1 response
+                                    // stream headers in c2s and s2s of the
+                                    // receiving entity MUST include the 'from'
+                                    // attribute.
                                     else if (parser.getAttributeName(i).equals("from")) {
                                         // Use the server name that the server says that it is.
                                         setServiceName(parser.getAttributeValue(i));

@@ -18,6 +18,15 @@ package org.jivesoftware.smack.packet;
 
 import org.jivesoftware.smack.util.XmlStringBuilder;
 
+/**
+ * A XEP-0115 Entity Capabilities extension.
+ * <p>
+ * Note that this is currently in smack-core as it's a potential stream feature.
+ * TODO: In feature versions of Smack, it should be possible to register
+ * "providers" for stream features too, so that this class can be moved back to
+ * smack-extensions.
+ * </p>
+ */
 public class CapsExtension extends FullStreamElement {
     public static final String NAMESPACE = "http://jabber.org/protocol/caps";
     public static final String ELEMENT = "c";
@@ -65,5 +74,9 @@ public class CapsExtension extends FullStreamElement {
         xml.attribute("hash", hash).attribute("node", node).attribute("ver", ver);
         xml.closeEmptyElement();
         return xml;
+    }
+
+    public static CapsExtension from(Packet stanza) {
+        return stanza.getExtension(ELEMENT, NAMESPACE);
     }
 }
