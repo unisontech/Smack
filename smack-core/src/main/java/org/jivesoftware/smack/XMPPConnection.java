@@ -338,10 +338,11 @@ public interface XMPPConnection {
 
     /**
      * Returns true if the roster will be loaded from the server when logging in. This
-     * is the common behaviour for clients but sometimes clients may want to differ this
+     * is the common behavior for clients but sometimes clients may want to differ this
      * or just never do it if not interested in rosters.
      *
      * @return true if the roster will be loaded from the server when logging in.
+     * @see <a href="http://xmpp.org/rfcs/rfc6121.html#roster-login">RFC 6121 2.2 - Retrieving the Roster on Login</a>
      */
     public boolean isRosterLoadedAtLogin();
 
