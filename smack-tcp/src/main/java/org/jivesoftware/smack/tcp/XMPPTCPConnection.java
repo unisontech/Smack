@@ -149,7 +149,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     // by XMPPTCPConnection, PacketReader, PacketWriter
     private volatile boolean socketClosed = false;
 
-    private boolean anonymous = false;
     private boolean usingTLS = false;
 
     private ParsingExceptionCallback parsingExceptionCallback = SmackConfiguration.getDefaultParsingExceptionCallback();
@@ -462,26 +461,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         afterSuccessfulLogin(true, false);
     }
 
-    private void afterSuccessfulLogin(final boolean anonymous, final boolean resumed) throws NotConnectedException {
-        // Indicate that we're now authenticated.
-        this.authenticated = true;
-        this.anonymous = anonymous;
-        
-        // Set presence to online.
-        if (config.isSendPresence() && !resumed) {
-            sendPacket(new Presence(Presence.Type.available));
-        }
-
-        // If debugging is enabled, change the the debug window title to include the
-        // name we are now logged-in as.
-        // If DEBUG_ENABLED was set to true AFTER the connection was created the debugger
-        // will be null
-        if (config.isDebuggerEnabled() && debugger != null) {
-            debugger.userHasLogged(user);
-        }
-        callConnectionAuthenticatedListener();
-    }
-
     @Override
     public boolean isConnected() {
         return connected;
@@ -499,11 +478,6 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     @Override
     public boolean isAuthenticated() {
         return authenticated;
-    }
-
-    @Override
-    public boolean isAnonymous() {
-        return anonymous;
     }
 
     /**

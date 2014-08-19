@@ -87,7 +87,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
     // Some flags which provides some info about the current state.
     private boolean connected = false;
     private boolean authenticated = false;
-    private boolean anonymous = false;
     private boolean isFirstInitialization = true;
     private boolean wasAuthenticated = false;
     private boolean done = false;
@@ -217,10 +216,6 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
         return user;
     }
 
-    public boolean isAnonymous() {
-        return anonymous;
-    }
-
     public boolean isAuthenticated() {
         return authenticated;
     }
@@ -267,25 +262,9 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
 
         bindResourceAndEstablishSession(resource);
 
-        // Set presence to online.
-        if (config.isSendPresence()) {
-            sendPacket(new Presence(Presence.Type.available));
-        }
-
-        // Indicate that we're now authenticated.
-        authenticated = true;
-        anonymous = false;
-
-        // Stores the autentication for future reconnection
+        // Stores the authentication for future reconnection
         setLoginInfo(username, password, resource);
-
-        // If debugging is enabled, change the the debug window title to include
-        // the
-        // name we are now logged-in as.l
-        if (config.isDebuggerEnabled() && debugger != null) {
-            debugger.userHasLogged(user);
-        }
-        callConnectionAuthenticatedListener();
+        afterSuccessfulLogin(false, false);
     }
 
     public void loginAnonymously() throws XMPPException, SmackException, IOException {
@@ -309,23 +288,7 @@ public class XMPPBOSHConnection extends AbstractXMPPConnection {
 
         bindResourceAndEstablishSession(null);
 
-        // Set presence to online.
-        if (config.isSendPresence()) {
-            sendPacket(new Presence(Presence.Type.available));
-        }
-
-        // Indicate that we're now authenticated.
-        authenticated = true;
-        anonymous = true;
-
-        // If debugging is enabled, change the the debug window title to include the
-        // name we are now logged-in as.
-        // If DEBUG_ENABLED was set to true AFTER the connection was created the debugger
-        // will be null
-        if (config.isDebuggerEnabled() && debugger != null) {
-            debugger.userHasLogged(user);
-        }
-        callConnectionAuthenticatedListener();
+        afterSuccessfulLogin(true, false);
     }
 
     @Override

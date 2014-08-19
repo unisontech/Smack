@@ -241,6 +241,8 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
      */
     protected boolean wasAuthenticated = false;
 
+    private boolean anonymous = false;
+
     /**
      * Create a new XMPPConnection to a XMPP server.
      * 
@@ -280,9 +282,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
 
     @Override
     public abstract boolean isAuthenticated();
-
-    @Override
-    public abstract boolean isAnonymous();
 
     @Override
     public abstract boolean isSecureConnection();
@@ -435,6 +434,34 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
             }
             packetCollector.nextResultOrThrow();
         }
+    }
+
+    protected void afterSuccessfulLogin(final boolean anonymous, final boolean resumed) throws NotConnectedException {
+        // Indicate that we're now authenticated.
+        this.authenticated = true;
+        this.anonymous = anonymous;
+
+        // If debugging is enabled, change the the debug window title to include the
+        // name we are now logged-in as.
+        // If DEBUG_ENABLED was set to true AFTER the connection was created the debugger
+        // will be null
+        if (config.isDebuggerEnabled() && debugger != null) {
+            debugger.userHasLogged(user);
+        }
+        callConnectionAuthenticatedListener();
+
+        // Set presence to online. It is important that this is done after
+        // callConnectionAuthenticatedListener(), as this call will also
+        // eventually load the roster. And we should load the roster before we
+        // send the initial presence.
+        if (config.isSendPresence()) {
+            sendPacket(new Presence(Presence.Type.available));
+        }
+    }
+
+    @Override
+    public boolean isAnonymous() {
+        return anonymous;
     }
 
     protected void setServiceName(String serviceName) {
