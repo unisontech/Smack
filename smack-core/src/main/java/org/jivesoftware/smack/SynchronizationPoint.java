@@ -65,14 +65,7 @@ public class SynchronizationPoint<E extends Exception> {
         finally {
             connectionLock.unlock();
         }
-        switch (state) {
-        case NoResponse:
-        case RequestSent:
-            throw new NoResponseException();
-        default:
-            // Do nothing
-            break;
-        }
+        maybeThrowNoResponseException();
     }
 
     public void sendAndWaitForResponseOrThrow(StreamElement request) throws E, NoResponseException,
@@ -107,9 +100,7 @@ public class SynchronizationPoint<E extends Exception> {
         } finally {
             connectionLock.unlock();
         }
-        if (state == State.NoResponse) {
-            throw new NoResponseException();
-        }
+        maybeThrowNoResponseException();
     }
 
     public void reportSuccess() {
@@ -153,6 +144,17 @@ public class SynchronizationPoint<E extends Exception> {
         }
         catch (InterruptedException e) {
             // TODO
+        }
+    }
+
+    private void maybeThrowNoResponseException() throws NoResponseException {
+        switch (state) {
+        case NoResponse:
+        case RequestSent:
+            throw new NoResponseException();
+        default:
+            // Do nothing
+            break;
         }
     }
 
