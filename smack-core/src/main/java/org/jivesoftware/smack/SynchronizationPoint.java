@@ -38,6 +38,7 @@ public class SynchronizationPoint<E extends Exception> {
         this.connection = connection;
         this.connectionLock = connection.getConnectionLock();
         this.condition = connection.getConnectionLock().newCondition();
+        init();
     }
 
     public void init() {
