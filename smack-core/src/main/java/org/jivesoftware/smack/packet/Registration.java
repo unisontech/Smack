@@ -94,7 +94,7 @@ public class Registration extends IQ {
         XmlStringBuilder xml = new XmlStringBuilder();
         xml.halfOpenElement(QUERY_ELEMENT);
         xml.xmlnsAttribute(NAMESPACE);
-        xml.rightAngelBracket();
+        xml.rightAngleBracket();
         xml.optElement("instructions", instructions);
         if (attributes != null && attributes.size() > 0) {
             for (String name : attributes.keySet()) {
