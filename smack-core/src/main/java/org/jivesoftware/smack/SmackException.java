@@ -131,6 +131,10 @@ public class SmackException extends Exception {
 
         public SecurityRequiredException() {
         }
+
+        public SecurityRequiredException(String message) {
+            super(message);
+        }
     }
 
     public static class SecurityNotPossibleException extends SmackException {

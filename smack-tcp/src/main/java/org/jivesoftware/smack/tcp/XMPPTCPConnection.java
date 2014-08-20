@@ -930,7 +930,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         StartTls startTlsFeature = getFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
         if (startTlsFeature != null) {
             if (startTlsFeature.required() && config.getSecurityMode() == SecurityMode.disabled) {
-                notifyConnectionError(new IllegalStateException(
+                notifyConnectionError(new SecurityRequiredException(
                                 "TLS required by server but not allowed by connection configuration"));
                 return;
             }
