@@ -828,7 +828,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
         if ((compressionHandler = maybeGetCompressionHandler()) != null) {
             compressSyncPoint.sendAndWaitForResponseOrThrow(new Compress(compressionHandler.getCompressionMethod()));
         } else {
-            LOGGER.warning("Could not enabled compression because no matching handler/method pair was found");
+            LOGGER.warning("Could not enable compression because no matching handler/method pair was found");
         }
     }
 
