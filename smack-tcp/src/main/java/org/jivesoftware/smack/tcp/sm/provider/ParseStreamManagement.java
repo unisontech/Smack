@@ -35,7 +35,6 @@ public class ParseStreamManagement {
         String id = parser.getAttributeValue("", "id");
         String location = parser.getAttributeValue("", "location");
         int max = ParserUtils.getIntegerAttribute(parser, "max", -1);
-        ParserUtils.assertAtEndTag(parser);
         return new Enabled(id, resume, location, max);
     }
 
