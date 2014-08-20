@@ -1,0 +1,4 @@
+[submodule "repo"]
+	path = repo
+	url = git@github.com:unisontech/smack-maven-repo.git
+	branch = repo
