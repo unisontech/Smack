@@ -692,13 +692,9 @@ public class PacketParserUtils {
                 name = parser.getName();
                 switch (name) {
                 case "resource":
-                    // Bind elements must only contain either 'resource' or 'jid'
-                    assert(bind == null);
                     bind = Bind.newSet(parser.nextText());
                     break;
                 case "jid":
-                    // Bind elements must only contain either 'resource' or 'jid'
-                    assert(bind == null);
                     bind = Bind.newResult(parser.nextText());
                     break;
                 }
