@@ -386,7 +386,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
         if (isSmResumptionPossible()) {
             smResumedSyncPoint.sendAndWaitForResponse(new Resume(clientHandledStanzasCount, smSessionId));
-            if (smResumedSyncPoint.wasSuccessfully()) {
+            if (smResumedSyncPoint.wasSuccessful()) {
                 // We successfully resumed the stream, be done here
                 afterSuccessfulLogin(false, true);
                 return;
@@ -801,7 +801,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
 
     @Override
     public boolean isUsingCompression() {
-        return compressionHandler != null && compressSyncPoint.wasSuccessfully();
+        return compressionHandler != null && compressSyncPoint.wasSuccessful();
     }
 
     /**
@@ -1185,13 +1185,13 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             LOGGER.fine("Stream Management (XEP-198): Stream resumed");
                             break;
                         case AckAnswer.ELEMENT:
-                            assert(smEnabledSyncPoint.wasSuccessfully() && isSmAvailable());
+                            assert(smEnabledSyncPoint.wasSuccessful() && isSmAvailable());
                             AckAnswer ackAnswer = ParseStreamManagement.ackAnswer(parser);
                             processHandledCount(ackAnswer.getHandledCount());
                             break;
                         case AckRequest.ELEMENT:
                             // AckRequest stanzas are trival, no need to parse them
-                            if (smEnabledSyncPoint.wasSuccessfully()) {
+                            if (smEnabledSyncPoint.wasSuccessful()) {
                                 packetWriter.sendStreamElement(new AckAnswer(clientHandledStanzasCount));
                             } else {
                                 LOGGER.warning("SM Ack Request received while SM is not enabled");
@@ -1522,7 +1522,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
     }
 
     public boolean isSmEnabled() {
-        return smEnabledSyncPoint.wasSuccessfully();
+        return smEnabledSyncPoint.wasSuccessful();
     }
 
     public boolean isDisconnectedButSmResumptionPossible() {

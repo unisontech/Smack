@@ -130,7 +130,7 @@ public class SynchronizationPoint<E extends Exception> {
         }
     }
 
-    public boolean wasSuccessfully() {
+    public boolean wasSuccessful() {
         return state == State.Success;
     }
 
