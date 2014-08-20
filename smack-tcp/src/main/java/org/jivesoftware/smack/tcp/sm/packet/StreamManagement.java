@@ -73,7 +73,7 @@ public class StreamManagement {
             }
         }
 
-        public boolean resumeSet() {
+        public boolean isResumeSet() {
             return resume;
         }
 

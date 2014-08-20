@@ -1136,7 +1136,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             break;
                         case Enabled.ELEMENT:
                             Enabled enabled = ParseStreamManagement.enabled(parser);
-                            if (enabled.resumeSet()) {
+                            if (enabled.isResumeSet()) {
                                 smSessionId = enabled.getId();
                                 assert(StringUtils.isNotEmpty(smSessionId));
                                 smServerMaxResumptimTime = enabled.getMaxResumptionTime();
