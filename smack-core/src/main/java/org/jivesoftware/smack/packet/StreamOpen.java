@@ -50,7 +50,7 @@ public class StreamOpen extends FullStreamElement {
         xml.attribute("to", service);
         xml.attribute("xmlns:stream", "http://etherx.jabber.org/streams");
         xml.attribute("version", VERSION);
-        xml.rightAngelBracket();
+        xml.rightAngleBracket();
         return xml;
     }
 

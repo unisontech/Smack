@@ -55,7 +55,7 @@ public class Mechanisms extends FullStreamElement {
     @Override
     public XmlStringBuilder toXML() {
         XmlStringBuilder xml = new XmlStringBuilder(this);
-        xml.rightAngelBracket();
+        xml.rightAngleBracket();
         for (String mechanism : mechanisms) {
             xml.element("mechanism", mechanism);
         }

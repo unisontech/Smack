@@ -50,7 +50,7 @@ public class StartTls extends FullStreamElement {
     @Override
     public XmlStringBuilder toXML() {
         XmlStringBuilder xml = new XmlStringBuilder(this);
-        xml.rightAngelBracket();
+        xml.rightAngleBracket();
         xml.condEmptyElement(required, "required");
         xml.closeElement(this);
         return xml;
