@@ -22,7 +22,7 @@ import org.jivesoftware.smack.util.XmlStringBuilder;
 /**
  * 
  */
-public class OpenStream extends FullStreamElement {
+public class StreamOpen extends FullStreamElement {
 
     public static final String ELEMENT = "stream:stream";
     public static final String NAMESPACE = "jabber:client";
@@ -30,7 +30,7 @@ public class OpenStream extends FullStreamElement {
     
     private final String service;
 
-    public OpenStream(String service) {
+    public StreamOpen(String service) {
        this.service = service;
     }
 

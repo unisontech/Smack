@@ -41,7 +41,7 @@ import org.jivesoftware.smack.filter.PacketFilter;
 import org.jivesoftware.smack.compress.packet.Compress;
 import org.jivesoftware.smack.packet.IQ;
 import org.jivesoftware.smack.packet.Message;
-import org.jivesoftware.smack.packet.OpenStream;
+import org.jivesoftware.smack.packet.StreamOpen;
 import org.jivesoftware.smack.packet.Packet;
 import org.jivesoftware.smack.packet.Presence;
 import org.jivesoftware.smack.packet.StartTls;
@@ -965,7 +965,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
      * @throws SmackException if the parser could not be reset.
      */
     void openStream() throws SmackException {
-        sendStreamElement(new OpenStream(getServiceName()));
+        sendStreamElement(new StreamOpen(getServiceName()));
         try {
             packetReader.parser = PacketParserUtils.newXmppParser(reader);
         }
