@@ -1043,6 +1043,7 @@ public class XMPPTCPConnection extends AbstractXMPPConnection {
                             }
                             clientHandledStanzasCount = SMUtils.incrementHeight(clientHandledStanzasCount);
                             processPacket(packet);
+                            reportStanzaReceived();
                             break;
                         case "stream":
                             // We found an opening stream.
