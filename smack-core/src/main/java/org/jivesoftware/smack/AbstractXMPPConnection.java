@@ -1069,9 +1069,9 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         }
 
         if (hasFeature(Mechanisms.ELEMENT, Mechanisms.NAMESPACE)) {
-            boolean starttls = hasFeature(StartTls.ELEMENT, StartTls.NAMESPACE);
             // Only proceed with SASL auth if TLS is disabled or if the server doesn't announce it
-            if (!starttls || (starttls && config.getSecurityMode() == SecurityMode.disabled)) {
+            if (!hasFeature(StartTls.ELEMENT, StartTls.NAMESPACE)
+                            || config.getSecurityMode() == SecurityMode.disabled) {
                 saslFeatureReceived.reportSuccess();
             }
         }
@@ -1079,8 +1079,8 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
         // If the server reported the bind feature then we are that that we did SASL and maybe
         // STARTTLS. We can then report that the last 'stream:features' have been parsed
         if (hasFeature(Bind.ELEMENT, Bind.NAMESPACE)) {
-            boolean compression = hasFeature(Compress.Feature.ELEMENT, Compress.NAMESPACE);
-            if (!compression || (compression && !config.isCompressionEnabled())) {
+            if (!hasFeature(Compress.Feature.ELEMENT, Compress.NAMESPACE)
+                            || !config.isCompressionEnabled()) {
                 // This was was last features from the server is either it did not contain
                 // compression or if we disabled it
                 lastFeaturesReceived.reportSuccess();
