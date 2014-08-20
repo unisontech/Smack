@@ -1064,7 +1064,6 @@ public abstract class AbstractXMPPConnection implements XMPPConnection {
                 }
             }
             else if (eventType == XmlPullParser.END_TAG && parser.getDepth() == initialDepth) {
-                assert(parser.getName().equals("features"));
                 break;
             }
         }
