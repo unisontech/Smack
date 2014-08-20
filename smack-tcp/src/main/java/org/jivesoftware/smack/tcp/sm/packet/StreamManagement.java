@@ -192,7 +192,7 @@ public class StreamManagement {
         public CharSequence toXML() {
             XmlStringBuilder xml = new XmlStringBuilder(this);
             if (error != null) {
-                xml.rightAngelBracket();
+                xml.rightAngleBracket();
                 xml.append(error.toXML());
                 xml.closeElement(ELEMENT);
             }
