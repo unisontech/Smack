@@ -62,7 +62,6 @@ public class ParseStreamManagement {
             }
         }
         XMPPError error = new XMPPError(condition);
-        ParserUtils.assertAtEndTag(parser);
         return new Failed(error);
     }
 
@@ -70,14 +69,12 @@ public class ParseStreamManagement {
         ParserUtils.assertAtStartTag(parser);
         long h = ParserUtils.getLongAttribute(parser, "h");
         String previd = parser.getAttributeValue("", "previd");
-        ParserUtils.assertAtEndTag(parser);
         return new Resumed(h, previd);
     }
 
     public static AckAnswer ackAnswer(XmlPullParser parser) throws XmlPullParserException {
         ParserUtils.assertAtStartTag(parser);
         long h = ParserUtils.getLongAttribute(parser, "h");
-        ParserUtils.assertAtEndTag(parser);
         return new AckAnswer(h);
     }
 
