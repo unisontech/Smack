@@ -94,7 +94,9 @@ public class StreamManagement {
     public static class Enable extends AbstractEnable {
         public static final String ELEMENT = "enable";
 
-        public Enable() {
+        public static final Enable INSTANCE = new Enable();
+
+        private Enable() {
         }
 
         public Enable(boolean resume) {

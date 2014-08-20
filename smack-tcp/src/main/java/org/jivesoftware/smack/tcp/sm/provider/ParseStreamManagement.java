@@ -29,12 +29,14 @@ import org.xmlpull.v1.XmlPullParserException;
 
 public class ParseStreamManagement {
 
-    public static Enabled enabled(XmlPullParser parser) throws XmlPullParserException {
+    public static Enabled enabled(XmlPullParser parser) throws XmlPullParserException, IOException {
         ParserUtils.assertAtStartTag(parser);
         boolean resume = ParserUtils.getBooleanAttribute(parser, "resume", false);
         String id = parser.getAttributeValue("", "id");
         String location = parser.getAttributeValue("", "location");
         int max = ParserUtils.getIntegerAttribute(parser, "max", -1);
+        parser.next();
+        ParserUtils.assertAtEndTag(parser);
         return new Enabled(id, resume, location, max);
     }
 
