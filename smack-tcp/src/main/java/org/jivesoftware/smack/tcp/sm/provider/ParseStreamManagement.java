@@ -43,7 +43,7 @@ public class ParseStreamManagement {
     public static Failed failed(XmlPullParser parser) throws XmlPullParserException, IOException {
         ParserUtils.assertAtStartTag(parser);
         String name;
-        String condition = "unkown";
+        String condition = "unknown";
         outerloop:
         while(true) {
             int event = parser.next();
@@ -63,20 +63,25 @@ public class ParseStreamManagement {
                 break;
             }
         }
+        ParserUtils.assertAtEndTag(parser);
         XMPPError error = new XMPPError(condition);
         return new Failed(error);
     }
 
-    public static Resumed resumed(XmlPullParser parser) throws XmlPullParserException {
+    public static Resumed resumed(XmlPullParser parser) throws XmlPullParserException, IOException {
         ParserUtils.assertAtStartTag(parser);
         long h = ParserUtils.getLongAttribute(parser, "h");
         String previd = parser.getAttributeValue("", "previd");
+        parser.next();
+        ParserUtils.assertAtEndTag(parser);
         return new Resumed(h, previd);
     }
 
-    public static AckAnswer ackAnswer(XmlPullParser parser) throws XmlPullParserException {
+    public static AckAnswer ackAnswer(XmlPullParser parser) throws XmlPullParserException, IOException {
         ParserUtils.assertAtStartTag(parser);
         long h = ParserUtils.getLongAttribute(parser, "h");
+        parser.next();
+        ParserUtils.assertAtEndTag(parser);
         return new AckAnswer(h);
     }
 
