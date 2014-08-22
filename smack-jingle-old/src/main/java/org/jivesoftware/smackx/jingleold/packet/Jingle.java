@@ -41,7 +41,7 @@ public class Jingle extends IQ {
 
     // static
 
-    public static final String NAMESPACE = "urn:xmpp:tmp:jingle";
+    public static final String NAMESPACE = "urn:xmpp:jingle:1";
 
     public static final String NODENAME = "jingle";
 

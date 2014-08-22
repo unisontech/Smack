@@ -63,6 +63,13 @@ public abstract class JingleContentDescription implements PacketExtension {
     public abstract String getNamespace();
 
     /**
+     * Return the media type.
+     *
+     * @return The media type
+     */
+    public abstract String getMediaType();
+
+    /**
      * Adds a audio payload type to the packet.
      *
      * @param pt the audio payload type to add.
@@ -150,7 +157,8 @@ public abstract class JingleContentDescription implements PacketExtension {
         synchronized (payloads) {
             if (payloads.size() > 0) {
                 buf.append("<").append(getElementName());
-                buf.append(" xmlns=\"").append(getNamespace()).append("\" >");
+                buf.append(" xmlns=\"").append(getNamespace()).append("\"");
+                buf.append(" media=\"").append(getMediaType()).append("\" >");
 
                 Iterator<JinglePayloadType> pt = payloads.listIterator();
                 while (pt.hasNext()) {
@@ -169,7 +177,8 @@ public abstract class JingleContentDescription implements PacketExtension {
      */
     public static class Audio extends JingleContentDescription {
 
-        public static final String NAMESPACE = "urn:xmpp:tmp:jingle:apps:rtp";
+        public static final String NAMESPACE = "urn:xmpp:jingle:apps:rtp:1";
+        public static final String MEDIA_TYPE = "audio";
 
         public Audio() {
             super();
@@ -185,6 +194,10 @@ public abstract class JingleContentDescription implements PacketExtension {
 
         public String getNamespace() {
             return NAMESPACE;
+        }
+
+        public String getMediaType() {
+            return MEDIA_TYPE;
         }
     }
 
