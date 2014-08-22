@@ -26,7 +26,7 @@ import org.xmlpull.v1.XmlPullParser;
 
 public class JingleError implements ExtensionElement {
 
-    public static String NAMESPACE = "urn:xmpp:tmp:jingle:errors";
+    public static String NAMESPACE = "urn:xmpp:jingle:errors:1";
 
     public static final JingleError OUT_OF_ORDER = new JingleError("out-of-order");
 

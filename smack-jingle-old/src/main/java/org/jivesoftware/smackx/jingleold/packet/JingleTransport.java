@@ -266,7 +266,7 @@ public class JingleTransport implements ExtensionElement {
      * RTP-ICE profile
      */
     public static class Ice extends JingleTransport {
-        public static final String NAMESPACE = "urn:xmpp:tmp:jingle:transports:ice-udp";
+        public static final String NAMESPACE = "urn:xmpp:jingle:transports:ice-udp:1";
 
         public Ice() {
             super();
@@ -348,7 +348,7 @@ public class JingleTransport implements ExtensionElement {
      * Raw UDP profile.
      */
     public static class RawUdp extends JingleTransport {
-        public static final String NAMESPACE = "http://www.xmpp.org/extensions/xep-0177.html#ns";
+        public static final String NAMESPACE = "urn:xmpp:jingle:transports:raw-udp:1";
 
         public RawUdp() {
             super();
