@@ -28,7 +28,7 @@ allprojects {
 		rootConfigDir = new File(rootDir, 'config')
 		sonatypeCredentialsAvailable = project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword')
 		isReleaseVersion = !isSnapshot
-		signingRequired = isReleaseVersion
+		signingRequired = false
 		sonatypeSnapshotUrl = "file://${project.rootProject.absoluteProjectDir}/repo"
 		sonatypeStagingUrl = "file://${project.rootProject.absoluteProjectDir}/repo"
 		// Returns only the date in yyyy-MM-dd format, as otherwise, with
