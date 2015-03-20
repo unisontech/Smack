@@ -1,8 +1,8 @@
 allprojects {
 	ext {
-		shortVersion = '4.1.0-rc4'
-		isSnapshot = true
-		jxmppVersion = '0.4.2-beta1'
+		shortVersion = '4.1.0-rc4+xep0080'
+		isSnapshot = false
+		jxmppVersion = '0.5.0-alpha2'
 		smackMinAndroidSdk = 8
 
 		// The baseline version to check the API's binary

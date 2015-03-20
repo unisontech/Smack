@@ -24,11 +24,11 @@ allprojects {
 		documentationDir = new File(buildDir, 'documentation')
 		releasedocsDir = new File(buildDir, 'releasedocs')
 		rootConfigDir = new File(rootDir, 'config')
-		sonatypeCredentialsAvailable = project.hasProperty('sonatypeUsername') && project.hasProperty('sonatypePassword')
+		nexusCredentialsAvailable = project.hasProperty('nexusUsername') && project.hasProperty('nexusPassword')
 		isReleaseVersion = !isSnapshot
-		signingRequired = isReleaseVersion
-		sonatypeSnapshotUrl = 'https://oss.sonatype.org/content/repositories/snapshots'
-		sonatypeStagingUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2'
+		signingRequired = false
+		nexusSnapshotUrl = "http://repo.spb.unison.com/content/repositories/snapshots/"
+		nexusStagingUrl = "http://repo.spb.unison.com/content/repositories/smack/"
 		// Returns only the date in yyyy-MM-dd format, as otherwise, with
 		// hh:mm:ss information, the manifest files would change with every
 		// build, causing unnecessary rebuilds.
@@ -47,7 +47,7 @@ allprojects {
 		androidBootClasspath = getAndroidRuntimeJar()
 		androidJavadocOffline = getAndroidJavadocOffline()
 	}
-	group = 'org.igniterealtime.smack'
+	group = 'com.unison.smack'
 	sourceCompatibility = 1.7
 	targetCompatibility = sourceCompatibility
 	version = shortVersion
@@ -181,7 +181,7 @@ subprojects {
 	apply plugin: 'osgi'
 	apply plugin: 'signing'
 	apply plugin: 'checkstyle'
-	apply plugin: 'org.kordamp.gradle.clirr'
+	//apply plugin: 'org.kordamp.gradle.clirr'
 
 	checkstyle {
 		configFile = new File(rootConfigDir, 'checkstyle.xml')
@@ -214,14 +214,14 @@ subprojects {
 				if (signingRequired) {
 					beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 				}
-				repository(url: project.sonatypeStagingUrl) {
-					if (sonatypeCredentialsAvailable) {
-						authentication(userName: sonatypeUsername, password: sonatypePassword)
+				repository(url: project.nexusStagingUrl) {
+					if (nexusCredentialsAvailable) {
+						authentication(userName: nexusUsername, password: nexusPassword)
 					}
 				}
-				snapshotRepository(url: project.sonatypeSnapshotUrl) {
-					if (sonatypeCredentialsAvailable) {
-						authentication(userName: sonatypeUsername, password: sonatypePassword)
+				snapshotRepository(url: project.nexusSnapshotUrl) {
+					if (nexusCredentialsAvailable) {
+						authentication(userName: nexusUsername, password: nexusPassword)
 					}
 				}
 
@@ -240,7 +240,7 @@ subprojects {
 					distributionManagement {
 						snapshotRepository {
 							id 'smack.snapshot'
-							url project.sonatypeSnapshotUrl
+							url project.nexusSnapshotUrl
 						}
 					}
 
@@ -282,10 +282,10 @@ subprojects {
 		sign configurations.archives
 	}
 
-	clirr {
+	/*clirr {
 		baseline = [group, name, clirrBaseline].join(':')
 		failOnErrors clirrFailOnErrors
-	}
+	}*/
 }
 
 subprojects*.jar {
@@ -295,10 +295,10 @@ subprojects*.jar {
 }
 
 // Important to specify this task after the subprojects block
-task clirrRootReport(type: org.kordamp.gradle.clirr.ClirrReportTask) {
+/*task clirrRootReport(type: org.kordamp.gradle.clirr.ClirrReportTask) {
 	dependsOn = subprojects.tasks.clirr
 	reports = files(subprojects.tasks.clirr.xmlReport)
-}
+}*/
 
 def getGitCommit() {
 	def dotGit = new File("$projectDir/.git")
